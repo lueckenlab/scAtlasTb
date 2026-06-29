@@ -237,7 +237,6 @@ updated_thresholds = get_thresholds(
     threshold_keys=scautoqc_metrics,
     autoqc_thresholds=adata.uns.get('scautoqc_ranges'),
     user_thresholds=snakemake.params.get('thresholds'),
-    df=adata.obs.copy(),
 )
 auto_thresholds = get_thresholds(
     threshold_keys=scautoqc_metrics,
@@ -256,19 +255,10 @@ coordinates = [
     ('n_genes',  'scrublet_score', 2, 1),
     ('n_counts', 'scrublet_score', 10, 1),
 ]
-# filter to configured metrics only
-temp = [
-    c for c in coordinates if
-    all(x in updated_thresholds.keys() for x in c[:2])
-]
-
-if len(temp) == 0:
-    coordinates = [
+coordinates = [
         c for c in coordinates if
         all(x in adata.obs.columns for x in c[:2])
     ]
-else:
-    coordinates = temp
 
 # reduce obs to required columns only
 required_columns = [

@@ -20,7 +20,6 @@ from utils.io import read_anndata, parse_args_, parse_set_nested
 from qc_utils import parse_parameters, QC_FLAGS, log_auto
 
 def plot_bar_all(adata, dataset, output_plots, dpi: int = 150):
-    logging.info('Plot removed cells...')
     plt.figure(figsize=(4, 5))
     plt.grid(False)
     sns.countplot(
@@ -69,20 +68,30 @@ def plot_composition(
         .sort_values(["failed", "ambiguous"], ascending=False)
         .index
     )
-    counts_ordered = counts.loc[order]
+    order_colums = [
+        i for i in ["passed", "failed", "ambiguous"] if i in counts.columns
+    ]
+    counts_ordered = counts.loc[order, order_colums]
 
     # Calculate proportions and totals
     proportions = counts_ordered.div(counts_ordered.sum(axis=1), axis=0) * 100
+    total_counts = counts_ordered.sum(axis=1)
 
     # Create JointGrid-like figure with space for legend
     from matplotlib.gridspec import GridSpec
     # Calculate dynamic height based on number of categories with better scaling
-    # make the width the height minus 10%
-    fig = plt.figure(figsize=(fig_height - (fig_height * 0.1), fig_height))
+    # Use 0.3 inches per category with a minimum of 6 inches
+    fig_height = max(6, n_hues * 0.3)
+    fig_width = 11
+    # make the width the height minus 10% when > 10 categories
+    # this ensures a square-ish plot for many categories
+    if n_hues > 10:
+        fig_width = fig_height - (fig_height * 0.1)
+    fig = plt.figure(figsize=(fig_width, fig_height))
     gs = GridSpec(
         nrows=1,
         ncols=3,
-        width_ratios=[0.60, 0.35, 0.05],
+        width_ratios=[0.75, 0.2, 0.05],
         wspace=0.1,
         hspace=0,
         # Reserve vertical room for the figure-level title so it never overlaps bars.
@@ -172,24 +181,21 @@ def plot_composition(
             )
 
     # Margin plot: stacked barplot of total counts on ax_margin
-    bottom = pd.Series(0, index=counts_ordered.index)
-    for status in counts_ordered.columns:
-        widths = counts_ordered[status]
-        bars = ax_margin.barh(
-            counts_ordered.index,
-            widths,
-            left=bottom,
-            linewidth=0.5,
-            label=status,
-            alpha=0.9,
-        )
-        bottom += widths
-        for idx, bar in zip(counts_ordered.index, bars):
-            bars_per_group[idx].append((bar, status))
+   # Margin plot: Total cell counts as histogram with annotations
+    ax_margin.barh(
+        total_counts.index,
+        total_counts.values,
+        edgecolor='white',
+        linewidth=0.5,
+        alpha=0.9,
+        color='#555555',  # Dark gray
+    )
 
     ax_margin.tick_params(axis='y', labelleft=False, left=False)
-    ax_margin.tick_params(axis='x', labelbottom=True, labelsize="medium")
-    ax_margin.set_xlabel('# Cells', fontsize="large")
+    ax_margin.tick_params(
+        axis='x', labelbottom=True, labelsize="medium", rotation=270
+    )
+    ax_margin.set_xlabel('# Cells', fontsize="large", labelpad=10)
     ax_margin.locator_params(axis='x', nbins=5)
     ax_margin.ticklabel_format(axis='x', style='plain')
 
@@ -211,7 +217,7 @@ def plot_composition(
     )
 
     fig.suptitle(
-        f"Cells that passed QC\n{dataset=}, {file_id=}",
+        f"Cells that passed QC\n{dataset=}\n{file_id=}",
         fontsize="large" if proportions.shape[0] < 10 else "xx-large",
         y=0.98,
     )
@@ -303,6 +309,7 @@ def plot_removed(
 
     ## Main code ## ------------------------------------------------------------
     logging.info(f'{hues=}')
+    logging.info('Plot removed cells...')
     plot_bar_all(adata, dataset, output_plots, dpi)
 
     # Filter out None (and non-categorical) hues before creating composition plots
@@ -316,6 +323,8 @@ def plot_removed(
     results = Parallel(n_jobs=threads, backend='threading', pre_dispatch='2*n_jobs')(
         delayed(safe_call_plot)(
             adata.obs.copy(),
+            dataset=dataset,
+            file_id=file_id,
             group_key=g,
             plot_dir=output_plots,
             dpi=dpi,
@@ -345,18 +354,24 @@ def plot_removed(
     )
 
     logging.info('Plot violin plots per QC metric for log scale...')
+    qc_metric_log_list = []
     for i, qc_metric in enumerate(scautoqc_metrics):
-        df[f"{qc_metric}_log"] = log_auto(df[qc_metric])
+        temp, metric_base = log_auto(df[qc_metric])
+        if metric_base > 1:
+            qc_metric_log = f"log{metric_base}_{qc_metric}"
+            df[qc_metric_log] = temp
+            qc_metric_log_list.append(qc_metric_log)
 
-    plot_violin(
-        df=df,
-        hue="qc_status",
-        metrics=[f"{qc_metric}_log" for qc_metric in scautoqc_metrics],
-        dataset=dataset,
-        output_plots=output_plots,
-        suffix="_log",
-        dpi=dpi,
-    )
+    if len(qc_metric_log_list) > 0:
+        plot_violin(
+            df=df,
+            hue="qc_status",
+            metrics=qc_metric_log_list,
+            dataset=dataset,
+            output_plots=output_plots,
+            suffix="_log",
+            dpi=dpi,
+        )
 
 def is_interactive():
     import sys

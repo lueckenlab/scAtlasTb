@@ -263,6 +263,10 @@ def log_auto_base(values: list, count_shift: int = 1) -> int:
 def log1p_base(_x, base):
     return np.log1p(_x) / np.log(base)
 
+def log_auto(_x):
+    base = log_auto_base(_x)
+    return log1p_base(_x, base), base
+
 def plot_qc_joint(
     df: pd.DataFrame,
     x: str,
@@ -443,8 +447,8 @@ def plot_qc_joint(
 
         ax_joint.set_xlim(0, x_max)
         ax_joint.set_ylim(0, y_max)
-        ax_joint.set_xlabel(x)
-        ax_joint.set_ylabel(y)
+        ax_joint.set_xlabel(f"log {x}" if log_x > 1 else x)
+        ax_joint.set_ylabel(f"log {y}" if log_y > 1 else y)
         ax_joint.spines['top'].set_visible(False)
         ax_joint.spines['right'].set_visible(False)
 
