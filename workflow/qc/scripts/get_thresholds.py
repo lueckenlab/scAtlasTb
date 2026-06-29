@@ -110,7 +110,7 @@ autoqc_thresholds = autoqc_thresholds.merge(
     right_index=True,
     how='left',
 )
-autoqc_thresholds = parse_autoqc(autoqc_thresholds)
+autoqc_thresholds = autoqc_thresholds
 adata.uns['scautoqc_ranges'] = autoqc_thresholds
 
 # Calculate threshold stats
@@ -163,6 +163,7 @@ apply_thresholds(
     adata,
     thresholds=get_thresholds(
         threshold_keys,
+        # parse_autoqc to make sure it follows autoqc's "side"
         user_thresholds=parse_autoqc(autoqc_thresholds),
     ),
     threshold_keys=threshold_keys,
