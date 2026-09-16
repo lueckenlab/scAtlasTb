@@ -16,7 +16,7 @@ matplotlib.use('Agg')  # Non-interactive backend to reduce memory overhead
 plt.rcParams['svg.fonttype'] = 'none'
 logging.basicConfig(level=logging.INFO)
 
-from utils.io import read_anndata, parse_args_, parse_set_nested
+from utils.io import read_anndata, parse_args_, parse_set_nested, is_interactive
 from qc_utils import parse_parameters, QC_FLAGS, log_auto
 
 def plot_bar_all(adata, dataset, output_plots, dpi: int = 150):
@@ -68,10 +68,7 @@ def plot_composition(
         .sort_values(["failed", "ambiguous"], ascending=False)
         .index
     )
-    order_colums = [
-        i for i in ["passed", "failed", "ambiguous"] if i in counts.columns
-    ]
-    counts_ordered = counts.loc[order, order_colums]
+    counts_ordered = counts.loc[order, :]
 
     # Calculate proportions and totals
     proportions = counts_ordered.div(counts_ordered.sum(axis=1), axis=0) * 100
@@ -127,8 +124,6 @@ def plot_composition(
     ax_main.margins(y=0)
     
     # Add detailed labels for main plot
-    fontsize = 8
-    fontweight = 'bold'
     # Ensure the figure is drawn before querying the renderer/text extents
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
@@ -241,8 +236,8 @@ def plot_violin(
         hue: str | list[str],
         metrics: str | list[str],
         dataset: str = "dataset",
-        facet: str = None,
-        output_plots: Path = ".",
+        facet: str | None = None,
+        output_plots: Path = Path("."),
         suffix: str = "",
         dpi: int = 150,
 ):
@@ -259,12 +254,12 @@ def plot_violin(
     plt.grid(False)
     for i, qc_metric in enumerate(metrics):
         sns.violinplot(
-            data=df,
+            data=df.reset_index(drop=True),
             x=hue if facet is None else facet,
             y=qc_metric,
             hue=hue,
             fill=False,
-            split=False if facet is None else True,
+            split=facet is None,
             inner='quartile',
             legend=False,
             ax=axes[i]
@@ -307,6 +302,9 @@ def plot_removed(
         return
     dataset, hues = parse_parameters(adata, snakemake.params, filter_hues=True)
 
+    ## Pre-processing ## -------------------------------------------------------
+    scautoqc_metrics = [m for m in scautoqc_metrics if m in adata.obs.columns]
+
     ## Main code ## ------------------------------------------------------------
     logging.info(f'{hues=}')
     logging.info('Plot removed cells...')
@@ -343,7 +341,9 @@ def plot_removed(
             logging.error(f"Group {g} failed: {e}")
 
     logging.info('Plot violin plots per QC metric...')
+    logging.info(f'{scautoqc_metrics=}')
     df = adata.obs.copy()
+    df = df.reset_index(drop=True) # when many cells and no deduplication
     plot_violin(
         df=df,
         hue="qc_status",
@@ -373,19 +373,6 @@ def plot_removed(
             dpi=dpi,
         )
 
-def is_interactive():
-    import sys
-    try:
-        # Works in IPython / Jupyter
-        from IPython import get_ipython
-        if get_ipython() is not None:
-            return True
-    except ImportError:
-        pass
-    # Fallback: regular Python REPL has sys.ps1
-    return hasattr(sys, "ps1") or sys.flags.interactive
-
-# exec(open("path/to/main.py").read())
 if __name__ == "__main__" and not is_interactive():
     if "snakemake" in globals():
         args = snakemake
