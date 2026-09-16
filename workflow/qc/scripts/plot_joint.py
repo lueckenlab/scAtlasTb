@@ -1,7 +1,7 @@
 from pathlib import Path
 import warnings
 import pandas as pd
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_numeric_dtype, is_categorical_dtype
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 import seaborn as sns
@@ -26,6 +26,7 @@ sns.set_context('paper', font_scale=1.2)
 
 from utils.io import read_anndata
 from qc_utils import parse_parameters, get_thresholds, plot_qc_joint, plot_density, log_auto_base
+from utils.subset_functions import SUBSET_MAP
 
 input_zarr = snakemake.input.zarr
 output_joint = Path(snakemake.output.joint)
@@ -54,6 +55,15 @@ if adata.obs.shape[0] == 0:
     logging.info('No data, skip plotting...')
     exit()
 
+if adata.obs.shape[0] > 1e6:
+    logging.info(f'Large dataset, downsampling')
+    tmp = SUBSET_MAP["within_sample"](
+        adata,
+        n_cell_max=100_000,
+        sample_key='file_id',
+    )
+    adata = adata[tmp].copy()
+    logging.info(f'Shape after downsampling: {adata.shape}')
 
 def _thresholds_equal(threshold_a, threshold_b):
     if threshold_a is None or threshold_b is None:
@@ -102,7 +112,11 @@ def create_facet_figure(df, out_file, hue, joint_title, scatter_plot_kwargs, dpi
         palette = 'plasma'
     else:
         n_unique = df[hue].nunique()
-        categories = df[hue].dropna().unique()
+        categories = (
+            df[hue].cat.categories
+            if is_categorical_dtype(df[hue])
+            else df[hue].dropna().unique()
+        )
         if n_unique > max_groups:
             palette = 'turbo'
         else:
