@@ -104,6 +104,7 @@ metrics_params = sctk.default_metric_params_df
 if metrics_params_file:
     user_params = pd.read_table(metrics_params_file, index_col=0)
     metrics_params.update(user_params)
+print(f"autoqc_thresholds (before)=\n{autoqc_thresholds}")
 autoqc_thresholds = autoqc_thresholds.merge(
     metrics_params,
     left_index=True,
@@ -111,6 +112,11 @@ autoqc_thresholds = autoqc_thresholds.merge(
     how='left',
 )
 autoqc_thresholds = autoqc_thresholds
+threshold_keys = [key for key in threshold_keys if key in adata.obs.columns]
+print(f"{threshold_keys=}")
+print(f"autoqc_thresholds (after)=\n{autoqc_thresholds}")
+if has_alternative_thresholds:
+    print(f"{alternative_thresholds=}")
 adata.uns['scautoqc_ranges'] = autoqc_thresholds
 
 # Calculate threshold stats
@@ -188,12 +194,13 @@ if has_alternative_thresholds:
     # set defaults for alternative thresholds
     updated_thresholds = update_thresholds(user_thresholds, autoqc_thresholds)
     alternative_thresholds = updated_thresholds | alternative_thresholds
+    print(f"{alternative_thresholds=}")
     apply_thresholds(
         adata,
         thresholds=get_thresholds(
             threshold_keys,
             user_thresholds=alternative_thresholds,
-            autoqc_thresholds=autoqc_thresholds,
+            # autoqc_thresholds=autoqc_thresholds,
         ),
         threshold_keys=threshold_keys,
         column_name='alternative_qc_status',
@@ -210,11 +217,11 @@ else:
 # convert QC status to ordered categorical
 adata.obs['qc_status'] = pd.Categorical(
     adata.obs['qc_status'],
-    categories=['failed', 'ambiguous', 'passed'], # keep passed on top
+    categories=['passed', 'failed', 'ambiguous'],
     ordered=True
 )
 
-# calculate QC stats
+print("calculate QC stats")
 qc_status_counts = adata.obs['qc_status'].value_counts()
 qc_status_counts = pd.DataFrame(qc_status_counts).T
 qc_status_counts['file_id'] = snakemake.wildcards.file_id
