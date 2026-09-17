@@ -736,6 +736,17 @@ def write_zarr_linked(
         with open(zattrs_file, 'w') as file:
             json.dump(zattrs, file, indent=4)
 
+def is_interactive():
+    import sys
+    try:
+        # Works in IPython / Jupyter
+        from IPython import get_ipython
+        if get_ipython() is not None:
+            return True
+    except ImportError:
+        pass
+    # Fallback: regular Python REPL has sys.ps1
+    return hasattr(sys, "ps1") or sys.flags.interactive
 
 def parse_set_nested(obj, path, value):
     levels = path.split(".")
@@ -770,8 +781,7 @@ def parse_args_():
     )
     parser.add_argument(
         "-p", "--parameter", type=str,
-        help="Used arguments in this script:\
-              input, output, params, threads, wildcards.",
+        help="Used arguments: input, output, params, threads, wildcards.",
     )
     args, unknown = parser.parse_known_args()
     # convert ["--a", "1", "--b", "foo"] to {"a": "1", "b": "foo"}
