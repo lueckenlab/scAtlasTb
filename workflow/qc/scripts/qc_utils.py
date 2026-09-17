@@ -23,7 +23,7 @@ QC_FLAGS = [
 def parse_parameters(adata: ad.AnnData, params: dict, filter_hues: bool = False):
     dataset = params.get('dataset', 'None')
     hues = params.get('hue', [])
-    
+
     split_datasets = dataset.split('--')
     if len(split_datasets) > 1:
         dataset = ' '.join([split_datasets[0], split_datasets[-1]])
@@ -51,7 +51,7 @@ def parse_parameters(adata: ad.AnnData, params: dict, filter_hues: bool = False)
 def parse_autoqc(autoqc_thresholds: pd.DataFrame):
     if autoqc_thresholds is None or autoqc_thresholds.empty or not 'side' in autoqc_thresholds.columns:
         return autoqc_thresholds
-    
+    # side has precedence over low/high values
     for key in autoqc_thresholds.index:
         side = autoqc_thresholds.loc[key, 'side'].lower()
         if side == 'max_only':
@@ -69,8 +69,21 @@ def update_thresholds(thresholds: dict, autoqc_thresholds: pd.DataFrame):
     for key in autoqc_thresholds.index:
         thresholds[f'{key}_min'] = autoqc_thresholds.loc[key, 'low']
         thresholds[f'{key}_max'] = autoqc_thresholds.loc[key, 'high']
-
     return thresholds
+
+def fill_autoqc_thresholds_from_df(metrics, df):
+    for metric in metrics.index:
+        if metric not in df.columns:
+            min_val = -np.inf
+            max_val = np.inf
+        else:
+            min_val = df[metric].min()
+            max_val = df[metric].max()
+        if pd.isna(metrics.loc[metric, 'min']):
+            metrics.loc[metric, 'min'] = min_val if np.isfinite(min_val) else -np.inf
+        if pd.isna(metrics.loc[metric, 'max']):
+            metrics.loc[metric, 'max'] = max_val if np.isfinite(max_val) else np.inf
+    return metrics
 
 
 def get_thresholds(
@@ -79,6 +92,7 @@ def get_thresholds(
     user_thresholds: [str, dict] = None,
     transform: bool = True,
     init_nan: bool = False,
+    df: pd.DataFrame = None,
 ):
     """
     :param threshold_keys: keys in mappings that define different QC paramters
@@ -94,8 +108,12 @@ def get_thresholds(
     
     # initialise thresholds
     if init_nan:
-        thresholds = {f'{key}_min': np.nan for key in threshold_keys}
-        thresholds |= {f'{key}_max': np.nan for key in threshold_keys}
+        if df is not None:
+            thresholds = {f'{key}_min': df[key].min() for key in threshold_keys}
+            thresholds |= {f'{key}_max': df[key].max() for key in threshold_keys}
+        else:
+            thresholds = {f'{key}_min': np.nan for key in threshold_keys}
+            thresholds |= {f'{key}_max': np.nan for key in threshold_keys}
     else:
         thresholds = {f'{key}_min': 0 for key in threshold_keys}
         thresholds |= {f'{key}_max': np.inf for key in threshold_keys}
@@ -163,13 +181,98 @@ def apply_thresholds(
         obs[column_name] = obs[column_name] & passed.fillna(False)
     return obs[column_name]
 
+def log_auto_base(values: list, count_shift: int = 1) -> int:
+    """
+    Decide whether to use log base 2 or log base 10 for a numeric list.
+
+    Decision hierarchy
+    ------------------
+    1. If all values are exact powers of 2 use log2.
+       Good for: read-depths, bit-widths, genomic bin sizes
+    2. If all values are exact powers of 10 use log10.
+       Good for: dilution series, pH, concentration, decades
+    3. Span heuristic: compare the dynamic range expressed in each base.
+       log2(max/min) < log10(max/min) * log2(10) is always true by definition,
+       so check data spans < 10 doublings vs < 3 decimals places
+       if log2 span <= 10 use log2 (fold-changes), otherwise fall back to log10
+
+    Parameters
+    ----------
+    values : sequence of positive floats
+
+    Returns
+    -------
+    2  if log base 2 is recommended
+    10 if log base 10 is recommended
+
+    Raises
+    ------
+    ValueError if the list is empty or contains non-positive values.
+    """
+    import math
+
+    # Drop NA values and validate input before computing min/max
+    data = [float(v + count_shift) for v in values if pd.notna(v)]
+    if not data:
+        raise ValueError("Input list is empty.")
+    if any(v <= 0 for v in data):
+        raise ValueError("All values must be strictly positive for log scaling.")
+
+    # rule: dynamic-range
+    vmin, vmax = min(data), max(data)
+
+    if vmin == vmax or (
+        (0 + count_shift) <= vmin <= (1 + count_shift)
+        and (0 + count_shift) <= vmax < (1 + count_shift)
+    ):
+        # No spread so either base works; or all within 0 and 1
+        # no point in log transforming
+        return 1
+
+    def _is_integer_close(x: float, tol: float = 1e-3) -> bool:
+        return abs(x - round(x)) < tol
+
+    def _all_powers_of(base: float) -> bool:
+        return all(
+            _is_integer_close(
+                math.log(v) / math.log(base)
+            )
+            for v in data
+        )
+
+    # rule: exact powers of 2
+    if _all_powers_of(2):
+        return 2.0
+
+    # rule: exact powers of 10
+    if _all_powers_of(10):
+        return 10.0
+
+    log2_span  = math.log2(vmax / vmin)   # number of doublings
+    log10_span = math.log10(vmax / vmin)  # decimal order
+
+    # Prefer log2 when the spread fits comfortably within ~10 doublings
+    # (~3 orders of magnitude); beyond that, log10 reads more naturally
+    LOG2_SPAN_THRESHOLD = 10.0
+
+    if log2_span <= LOG2_SPAN_THRESHOLD and log10_span <= 3:
+        return 2.0
+    else:
+        return 10.0
+
+def log1p_base(_x, base):
+    return np.log1p(_x) / np.log(base)
+
+def log_auto(_x):
+    base = log_auto_base(_x)
+    return log1p_base(_x, base), base
 
 def plot_qc_joint(
     df: pd.DataFrame,
     x: str,
     y: str,
-    log_x: int = 1,
-    log_y: int = 1,
+    log_x: bool | int = 1,
+    log_y: bool | int = 1,
     hue: str = None,
     main_plot_function=None,
     marginal_hue=None,
@@ -199,8 +302,8 @@ def plot_qc_joint(
     :param df: observation dataframe
     :param x: df column for x axis
     :param y: df column for y axis
-    :param log_x: log base for transforming x values. Default 1, no transformation
-    :param log_y: log base for transforming y values. Default 1, no transformation
+    :param log_x: Whether to log-transform x (No transformation = False | 0 | 1)
+    :param log_y: Whether to log-transform y (No transformation = False | 0 | 1)
     :param hue: df column with annotations for color coding scatter plot points
     :param marginal_hue: df column with annotations for color coding marginal plot distributions
     :param x_threshold: tuple of (min, max) filter thresholds for x axis
@@ -234,9 +337,6 @@ def plot_qc_joint(
     y_threshold  = _normalize_threshold_pair(y_threshold)
     x_threshold2 = _normalize_threshold_pair(x_threshold2)
     y_threshold2 = _normalize_threshold_pair(y_threshold2)
-
-    def log1p_base(_x, base):
-        return np.log1p(_x) / np.log(base)
 
     orig_x = df[x].copy() if log_x > 1 else None
     orig_y = df[y].copy() if log_y > 1 else None
@@ -347,8 +447,8 @@ def plot_qc_joint(
 
         ax_joint.set_xlim(0, x_max)
         ax_joint.set_ylim(0, y_max)
-        ax_joint.set_xlabel(x)
-        ax_joint.set_ylabel(y)
+        ax_joint.set_xlabel(f"log {x}" if log_x > 1 else x)
+        ax_joint.set_ylabel(f"log {y}" if log_y > 1 else y)
         ax_joint.spines['top'].set_visible(False)
         ax_joint.spines['right'].set_visible(False)
 

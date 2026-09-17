@@ -1,7 +1,7 @@
 from pathlib import Path
 import warnings
 import pandas as pd
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_numeric_dtype, is_categorical_dtype
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 import seaborn as sns
@@ -25,8 +25,8 @@ sns.set_theme(style='ticks')
 sns.set_context('paper', font_scale=1.2)
 
 from utils.io import read_anndata
-from qc_utils import parse_parameters, get_thresholds, plot_qc_joint, plot_density, QC_FLAGS
-
+from qc_utils import parse_parameters, get_thresholds, plot_qc_joint, plot_density, log_auto_base
+from utils.subset_functions import SUBSET_MAP
 
 input_zarr = snakemake.input.zarr
 output_joint = Path(snakemake.output.joint)
@@ -55,6 +55,15 @@ if adata.obs.shape[0] == 0:
     logging.info('No data, skip plotting...')
     exit()
 
+if adata.obs.shape[0] > 1e6:
+    logging.info(f'Large dataset, downsampling')
+    tmp = SUBSET_MAP["within_sample"](
+        adata,
+        n_cell_max=100_000,
+        sample_key='file_id',
+    )
+    adata = adata[tmp].copy()
+    logging.info(f'Shape after downsampling: {adata.shape}')
 
 def _thresholds_equal(threshold_a, threshold_b):
     if threshold_a is None or threshold_b is None:
@@ -103,7 +112,11 @@ def create_facet_figure(df, out_file, hue, joint_title, scatter_plot_kwargs, dpi
         palette = 'plasma'
     else:
         n_unique = df[hue].nunique()
-        categories = df[hue].dropna().unique()
+        categories = (
+            df[hue].cat.categories
+            if is_categorical_dtype(df[hue])
+            else df[hue].dropna().unique()
+        )
         if n_unique > max_groups:
             palette = 'turbo'
         else:
@@ -147,8 +160,18 @@ def create_facet_figure(df, out_file, hue, joint_title, scatter_plot_kwargs, dpi
             title='', fig=fig,
             **plot_kwargs,
         )
-        plot_qc_joint(**common_kwargs, log_x=1,     log_y=1,     subplot_spec=outer[row_idx, 0])
-        plot_qc_joint(**common_kwargs, log_x=log_x, log_y=log_y, subplot_spec=outer[row_idx, 1])
+        plot_qc_joint(
+            **common_kwargs,
+            log_x=1,
+            log_y=1,
+            subplot_spec=outer[row_idx, 0]
+        )
+        plot_qc_joint(
+            **common_kwargs,
+            log_x=log_x if log_x > 1 else log_auto_base(df[x]),
+            log_y=log_y if log_y > 1 else log_auto_base(df[y]),
+            subplot_spec=outer[row_idx, 1]
+        )
 
     all_handles, all_labels = _add_threshold_legend(fig)
 
@@ -192,8 +215,18 @@ def create_density_figure(df, out_file, joint_title, dpi=150):
             threshold_linestyle2=threshold_linestyle2,
             title='', fig=fig,
         )
-        plot_density(**common_kwargs, log_x=1,     log_y=1,     subplot_spec=outer[row_idx, 0])
-        plot_density(**common_kwargs, log_x=log_x, log_y=log_y, subplot_spec=outer[row_idx, 1])
+        plot_density(
+            **common_kwargs,
+            log_x=1,
+            log_y=1,
+            subplot_spec=outer[row_idx, 0]
+        )
+        plot_density(
+            **common_kwargs,
+            log_x=log_x if log_x > 1 else log_auto_base(df[x]),
+            log_y=log_y if log_y > 1 else log_auto_base(df[y]),
+            subplot_spec=outer[row_idx, 1]
+        )
 
     all_handles, all_labels = _add_threshold_legend(fig)
     fig.legend(all_handles, all_labels, loc='outside right center', frameon=False, fontsize=10)
@@ -236,8 +269,12 @@ coordinates = [
     ('n_genes',  'scrublet_score', 2, 1),
     ('n_counts', 'scrublet_score', 10, 1),
 ]
-coordinates = [c for c in coordinates if all(x in adata.obs.columns for x in c[:2])]
+coordinates = [
+        c for c in coordinates if
+        all(x in adata.obs.columns for x in c[:2])
+    ]
 
+# reduce obs to required columns only
 required_columns = [
     col for col in {*hues, *[c for coords in coordinates for c in coords[:2]]}
     if col in adata.obs.columns

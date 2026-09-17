@@ -20,6 +20,7 @@ da_config.set(**{'array.slicing.split_large_chunks': False})
 from .subset_slots import subset_slot, set_mask_per_slot
 from .misc import dask_compute
 
+from types import SimpleNamespace
 
 ALL_SLOTS = ['X', 'obs', 'var', 'obsm', 'varm', 'obsp', 'varp', 'layers', 'uns', 'raw']
 
@@ -734,3 +735,62 @@ def write_zarr_linked(
         zattrs_file.unlink()
         with open(zattrs_file, 'w') as file:
             json.dump(zattrs, file, indent=4)
+
+def is_interactive():
+    import sys
+    try:
+        # Works in IPython / Jupyter
+        from IPython import get_ipython
+        if get_ipython() is not None:
+            return True
+    except ImportError:
+        pass
+    # Fallback: regular Python REPL has sys.ps1
+    return hasattr(sys, "ps1") or sys.flags.interactive
+
+def parse_set_nested(obj, path, value):
+    levels = path.split(".")
+    obs_level = obj
+    for level_next in levels[:-1]:
+        if not hasattr(obs_level, level_next):
+            setattr(obs_level, level_next, SimpleNamespace())
+        obs_level = getattr(obs_level, level_next)
+
+    setattr(obs_level, levels[-1], value)
+
+def parse_value(v):
+    try:
+        return json.loads(v)
+    except Exception:
+        return v
+
+def dotdict(x):
+    if isinstance(x, dict):
+        return SimpleNamespace(**{k: dotdict(v) for k, v in x.items()})
+    if isinstance(x, list):
+        return [dotdict(v) for v in x]
+    if isinstance(x, tuple):
+        return tuple(dotdict(v) for v in x)
+    return x
+
+def parse_args_():
+    """Parse command line arguments."""
+    import argparse
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "-p", "--parameter", type=str,
+        help="Used arguments: input, output, params, threads, wildcards.",
+    )
+    args, unknown = parser.parse_known_args()
+    # convert ["--a", "1", "--b", "foo"] to {"a": "1", "b": "foo"}
+    know_it = iter(unknown)
+    dynamic = {
+        k.lstrip("-").replace("-", "_"): next(know_it, True) for k in know_it
+    }
+    # merge into args namespace
+    for k, v in dynamic.items():
+        print(k, v)
+        parse_set_nested(args, k, dotdict(parse_value(v)))
+    return args
