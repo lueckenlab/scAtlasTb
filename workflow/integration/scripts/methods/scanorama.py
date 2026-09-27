@@ -59,7 +59,10 @@ adata = read_anndata(
 clean_categorical_column(adata, batch_key)
 
 # subset features
-adata, _ = subset_hvg(adata, var_column='integration_features')
+# keep the feature mask so linked full-feature slots (layers, raw, varm) are
+# subset to match the written X and var
+var_mask = adata.var['integration_features'].to_numpy(dtype=bool)
+adata, subsetted = subset_hvg(adata, var_column='integration_features')
 
 obs_names = adata.obs_names.copy()
 batch_categories = adata.obs[batch_key].unique().tolist()
@@ -104,4 +107,5 @@ write_zarr_linked(
     output_file,
     # files_to_keep=['obsm', 'uns'],
     files_to_keep=['X', 'obsm', 'var', 'uns'],
+    subset_mask=(None, var_mask) if subsetted else None,
 )

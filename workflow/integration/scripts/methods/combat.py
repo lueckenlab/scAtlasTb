@@ -36,7 +36,10 @@ adata = read_anndata(
 clean_categorical_column(adata, wildcards.batch)
 
 # subset features
-adata, _ = subset_hvg(adata, var_column='integration_features')
+# keep the feature mask so linked full-feature slots (layers, raw, varm) are
+# subset to match the written X and var
+var_mask = adata.var['integration_features'].to_numpy(dtype=bool)
+adata, subsetted = subset_hvg(adata, var_column='integration_features')
 
 # run method
 logging.info(f'Run Combat with parameters {pformat(hyperparams)}...')
@@ -57,4 +60,5 @@ write_zarr_linked(
     input_file,
     output_file,
     files_to_keep=['X', 'var', 'uns'],
+    subset_mask=(None, var_mask) if subsetted else None,
 )
