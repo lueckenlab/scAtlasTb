@@ -23,6 +23,7 @@ def asw_batch_y(adata, output_type, batch_key, label_key, **kwargs):
     if output_type == 'knn':
         return np.nan
 
+    adata = adata[adata.obs[label_key].notna()].copy()
     X = adata.obsm['X_emb'] if output_type == 'embed' else adata.obsm['X_pca']
     X = X if isinstance(X, np.ndarray) else X.todense()
     labels = rename_categories(adata, label_key)
@@ -55,6 +56,7 @@ def asw_label_y(adata, output_type, batch_key, label_key, **kwargs):
     if output_type == 'knn':
         return np.nan
 
+    adata = adata[adata.obs[label_key].notna()].copy()
     X = adata.obsm['X_emb'] if output_type == 'embed' else adata.obsm['X_pca']
     X = X if isinstance(X, np.ndarray) else X.todense()
     labels = rename_categories(adata, label_key)

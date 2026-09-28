@@ -24,6 +24,7 @@ def clisi_y(adata, output_type, batch_key, label_key, **kwargs):
         return np.nan
     
     adata = select_neighbors(adata, output_type)
+    adata = adata[adata.obs[label_key].notna()].copy()
     labels = rename_categories(adata, label_key)
     
     return scib_metrics.clisi_knn(
