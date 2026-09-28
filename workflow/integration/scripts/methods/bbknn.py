@@ -75,7 +75,11 @@ sc.external.pp.bbknn(
 )
 
 # prepare output adata
+X_pca = adata.obsm[use_rep]
 adata = remove_slots(adata=adata, output_type=params['output_type'])
+# keep the representation the graph was built on, as recorded in .uns['neighbors'],
+# so that downstream steps (e.g. UMAP) don't recompute it from the full feature matrix
+adata.obsm[use_rep] = X_pca
 add_metadata(adata, wildcards, params)
 
 logging.info(f'Write {output_file}...')
