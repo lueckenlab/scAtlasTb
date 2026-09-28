@@ -60,9 +60,11 @@ def scanpy_to_neighborsresults(adata):
     # scib_metrics expects each cell as neighbor 0 (distance 0), n_neighbors columns total.
     # scanpy stores n_neighbors-1 off-diagonal neighbors (self excluded); some backends
     # (e.g. rapids) may include self. Force the convention regardless of backend.
-    indices = np.full((n_obs, n_neighbors), -1, dtype=int)
+    # Rows with fewer neighbors (e.g. after subsetting cells) are padded with the cell
+    # itself at infinite distance, which carries no weight in scib_metrics; -1 would be
+    # an invalid column index in NeighborsResults.knn_graph_distances.
+    indices = np.repeat(np.arange(n_obs)[:, None], n_neighbors, axis=1)
     distances = np.full((n_obs, n_neighbors), np.inf, dtype=float)
-    indices[:, 0] = np.arange(n_obs)
     distances[:, 0] = 0.0
 
     indptr = dist_matrix.indptr
