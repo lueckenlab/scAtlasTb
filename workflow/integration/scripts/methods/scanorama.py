@@ -61,6 +61,7 @@ clean_categorical_column(adata, batch_key)
 # subset features
 adata, _ = subset_hvg(adata, var_column='integration_features')
 
+obs_names = adata.obs_names.copy()
 batch_categories = adata.obs[batch_key].unique().tolist()
 adatas = [
     adata[adata.obs[batch_key] == batch].copy()
@@ -80,6 +81,9 @@ adata = merge_adata(
     keys=batch_categories,
     index_unique=None
 )
+# restore the input cell order: cells are concatenated by batch, but .obs is
+# linked from the input file, so rows must match its order
+adata = adata[obs_names].copy()
 
 # save full feature output
 # adata.obsm["X_full"] = adata.X
