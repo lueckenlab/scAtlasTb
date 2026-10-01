@@ -57,7 +57,7 @@ sctk.calculate_qc(
     flags = {
         "mito": r"(?i)^MT-",
         "ribo": r"(?i)^RP[LS]",
-        "hb": r"(?i)^HB"
+        "hb": r"(?i)^HB[ABDEGMQZ][0-9]?$"
     },
 )
 
