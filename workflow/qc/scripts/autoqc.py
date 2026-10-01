@@ -70,6 +70,7 @@ sctk.cellwise_qc(
     metrics=metrics_params,
     **gaussian_kwargs,
 )
+adata.obs = adata.obs.drop(columns='cell_passed_qc')
 
 adata.uns['scautoqc_ranges'] = adata.uns['scautoqc_ranges'].astype('float32')
 logging.info(f"\n{adata.uns['scautoqc_ranges']}")
