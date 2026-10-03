@@ -66,6 +66,7 @@ adata, subsetted = subset_hvg(adata, var_column='integration_features')
 var = adata.var.copy()
 
 obs_names = adata.obs_names.copy()
+var_names = adata.var_names.copy()
 batch_categories = adata.obs[batch_key].unique().tolist()
 adatas = [
     adata[adata.obs[batch_key] == batch].copy()
@@ -88,6 +89,9 @@ adata = merge_adata(
 # restore the input cell order: cells are concatenated by batch, but .obs is
 # linked from the input file, so rows must match its order
 adata = adata[obs_names].copy()
+# restore the input gene order: scanorama returns its genes sorted alphabetically,
+# but layers/raw/varm are linked from the input, so columns must match its order
+adata = adata[:, var_names].copy()
 # anndata.concat drops var columns, restore them
 adata.var = var.loc[adata.var_names]
 
