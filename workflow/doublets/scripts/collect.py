@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 
-from utils.io import read_anndata, link_zarr, write_zarr_linked, ALL_SLOTS
+from utils.io import read_anndata, link_zarr, write_zarr_linked, ALL_SLOTS, check_slot_exists
 
 
 input_anndata = snakemake.input[0]
@@ -11,7 +11,8 @@ output_zarr = snakemake.output.zarr
 layer = snakemake.params.get('layer', 'X')
 
 if input_anndata.endswith('.h5ad'):
-    kwargs = {x: x for x in ALL_SLOTS} | dict(X=layer)
+    # only the slots the file has (e.g. no .raw)
+    kwargs = {x: x for x in ALL_SLOTS if check_slot_exists(input_anndata, x)} | dict(X=layer)
 else:
     kwargs = dict(obs='obs')
 
