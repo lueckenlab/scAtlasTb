@@ -7,7 +7,7 @@ Given a TSV file and a schema mapping, the pipeline does the following:
 3. [Merge datasets per study, organ or custom subset](#merge-data)
 4. [Filter cells](#filter)
 
-Examples of configuration files are: `test/config.yaml` and `test/datasets.tsv`.
+Examples of configuration files are under `test/configs/` (e.g. `test/configs/cellxgene.yaml` and `test/configs/dataset_info/cellxgene.tsv`).
 By default, dataset configurations are available under `configs` at the top-level pipeline (git root of this repository), but they can be modified or replaced by custom files.
 
 ## Load data
@@ -17,7 +17,7 @@ Which way a dataset is loaded, depends on the [dataset mapping](#dataset-file-ma
 
 ## Aggregate Metadata
 
-The `metadata` rule adds additional dataset-level information that is included from the input TSV file.
+The `harmonize_metadata` rule adds additional dataset-level information that is included from the input TSV file.
 This steps expects the data to follow
 the [CELLxGENE schema 3.0.0](https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/3.0.0/schema.md)
 and is extended as described below.
@@ -25,7 +25,7 @@ Other steps include:
 
 + adding external annotations if annotation file and columns are available in the TSV
 + saving donor IDs under `.obs['donor']`
-+ inferring sample ID from input TSV and saving it under `.obs['sample']`
++ building a technical sample ID from the columns listed in `tech_id` and saving it under `.obs['tech_id']` and `.obs['sample']`
 
 The input `AnnData` objects must contain:
 
@@ -37,15 +37,15 @@ The output `AnnData` objects will contain:
 + `.X` raw counts, sparse format
 + `.uns['meta']` metadata from TSV file
 + `.obs` columns from CELLxGENE schema 3.0.0 and a subset of information in `.uns['meta']` from `EXTRA_COLUMNS`
-  from `scripts/utils.py`
+  from `scripts/load_data_utils.py`
 + `.obs['dataset']`, `.uns['dataset']` name of task/dataset
 + `.obs['organ']`, `.uns['organ']` organ
 + `.obs['donor']` donor ID
-+ `.obs['sample']` sample ID (inferred from input TSV)
++ `.obs['sample']` sample ID (same as `.obs['tech_id']`)
 + `.obs['barcode']` cell barcodes as declared in index
 + `.obs['author_annotation']` author annotation under the `author_annotation` column of the input TSV
 + `.var` gene information as specified in CELLxGENE schema 3.0.0
-+ `.obs.index` unique cell identifiers e.g. dataset + numerical index
++ `.obs.index` unique cell identifiers `<barcode>-<tech_id>`
 
 The `AnnData` is saved as a zarr file for a better speed to compression tradeoff compared ot gzipped h5ad files.
 
@@ -74,13 +74,14 @@ filter_per_organ:
       min: 50
       max: 10000
     mito_pct: 30
-    remove_by_colum:
+    remove_by_column:
       dataset:
         - Lee2020_2
 ```
 
 All organ-level filtering decisions are applied per study.
 The `remove_by_column` key can include any columns that are available in the anndata objects per study.
+Currently only `remove_by_column` is applied (other keys such as `cells_per_sample` or `mito_pct` are ignored), and cells are only flagged in `.obs['filtered']`, not removed.
 
 An example of per study filters shows that only the studies that require further filtering need to be overwritten.
 The filter options are the same as for the organ-level filters.
@@ -88,7 +89,7 @@ The filter options are the same as for the organ-level filters.
 ```yaml
 filter_per_study:
   SchulteSchrepping2020:
-    remove_by_colum:
+    remove_by_column:
       sample:
         - Schulte-Schrepping_C2P01H_d0
         - Schulte-Schrepping_C2P05F_d0
@@ -128,7 +129,8 @@ The dataset definition file should specify which datasets you want to include fo
 | study             | Name of the study, used for aggregating datasets to study level                                                                                                                                            |
 | organ             | Name of the organ, can be tissue or any other name for aggregating the atlas                                                                                                                               |
 | donor_column      | Column with donor IDs                                      a donor is an individual who provided the sample                                                                                                |
-| sample_column     | Column with sample IDs ideally a sample is a subset of cells associated with an individual. The data should be deconvoluted, _i. e._, a sample mustn't contain multiple individuals                        |
+| tech_id           | Column(s) that identify a technical sample/library, multiple columns joined by `+` (e.g. `sample+lane`); stored as `.obs['tech_id']` and `.obs['sample']` |
+| keep_covariates   | Optional. Comma-separated additional `.obs` columns to keep in addition to the schema columns |
 | author_annotation | Column with author annotations (needed for annotation quality assessment and label harmonisation)                                                                                                          |
 | cell_type         | Optional. Column with cell ontology labels (needed to for different versions of the CELLxGENE schema, TODO: deprecate). If cell_type is missing from the file, it will be generated from author_annotation |
 | schema            | Name of schema to be mapped to `cellxgene`. Naming must match the columns in schema mapping.                                                                                                               |
@@ -195,7 +197,7 @@ For more information on Snakemake configuration files, please refer to the [docu
 
 # Testing
 
-The test configuration and command are under `tests/'.
+The test configuration and command are under `test/`.
 All paths in the following are relative to the module root directory.
 
 ## Prepare test data
