@@ -13,7 +13,51 @@ This allows for an efficient and scalable way to run analyses on large datasets 
 
 ## Getting started
 
-Please refer to the [documentation][].
+Please refer to the [documentation][] for a detailed guide. In short:
+
+### System requirements
+
+* Linux (preferred) or MacOS, with [conda](https://github.com/conda-forge/miniforge) and git installed
+* All software dependencies are installed via the conda environments in `envs/`
+* The demo runs on a standard desktop computer (CPU only). An NVIDIA GPU is optional and only needed for deep-learning-based and GPU-accelerated methods.
+
+See [system requirements](https://scatlastb.readthedocs.io/en/latest/getting_started/installation.html#system-requirements) for details.
+
+### Installation
+
+```
+git clone https://github.com/HCA-integration/scAtlasTb.git
+cd scAtlasTb
+for env in snakemake scanpy bbknn scanorama scib plots funkyheatmap; do
+    bash envs/install_environment.sh -f envs/$env.yaml
+done
+```
+
+This installs the environments needed for the demo. <!-- TODO(user): fill in measured install time --> Typical install time: ~N minutes.
+See the [installation guide](https://scatlastb.readthedocs.io/en/latest/getting_started/installation.html) for installing all environments.
+
+### Demo
+
+The repository ships a small demo dataset (`data/pbmc68k.h5ad`, 700 cells with 3 simulated batches).
+Run preprocessing, data integration and integration benchmarking on it with:
+
+```
+conda activate snakemake
+bash run_example.sh preprocessing_all integration_all metrics_all -c 4
+```
+
+<!-- TODO(user): fill in measured run time --> Expected run time: ~N minutes on a standard desktop computer.
+The [quickstart](https://scatlastb.readthedocs.io/en/latest/getting_started/quickstart.html) describes the expected output.
+
+### Usage on your own data
+
+Write a configuration file for your data following the [configuration guide](https://scatlastb.readthedocs.io/en/latest/getting_started/configure_workflow.html) and [call the pipeline](https://scatlastb.readthedocs.io/en/latest/getting_started/call_pipeline.html) with it.
+Each module is described in detail in the [module documentation](https://scatlastb.readthedocs.io/en/latest/modules/index_data_preparation.html).
+
+### Reproduction
+
+<!-- TODO(user): add link to the reproducibility repository/instructions for the manuscript results -->
+Instructions for reproducing the results of the manuscript are available at: TODO.
 
 
 ## 🧰 Which Modules does the Toolbox Support?
@@ -154,7 +198,7 @@ preprocessing_umap                         1
 total                                    146
 ```
 
-💖 Beautiful, right? Chek out the [documentation][] to learn how to set up your own workflow!
+💖 Beautiful, right? Check out the [documentation][] to learn how to set up your own workflow!
 
 ## Release notes
 
