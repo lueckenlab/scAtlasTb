@@ -55,16 +55,17 @@ DATASETS:
         harmonypy:
         scanorama:
           batch_size: 100
-        scvi:
-          max_epochs: 10
-          early_stopping: true
-        drvi:
-          max_epochs: 10
-          early_stopping: true
-        sysvi:
-          max_epochs: 10
-          early_stopping: true
-          system_key: phase
+        # GPU methods: require `use_gpu: true` and the scvi-tools environment (CUDA)
+        # scvi:
+        #   max_epochs: 10
+        #   early_stopping: true
+        # drvi:
+        #   max_epochs: 10
+        #   early_stopping: true
+        # sysvi:
+        #   max_epochs: 10
+        #   early_stopping: true
+        #   system_key: phase
 
     # -------------------------------------------------------------------------
     # Module: metrics
@@ -78,7 +79,7 @@ DATASETS:
         - graph_connectivity
         - ilisi
         - pcr_comparison
-        - kbet_pg
+        # - kbet_pg  # requires the pegasus environment
         - ari
         - asw_label
         - cell_cycle
