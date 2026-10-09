@@ -1,6 +1,6 @@
 # Exploration
 
-![Exploration workflow graph](exploration_all.png "Exploration")
+Exploratory summaries of one or more input files: dataset statistics, cells per sample/donor, marker gene dot plots and barcode overlap between samples.
 
 ## Configuration
 

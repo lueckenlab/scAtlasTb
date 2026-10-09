@@ -4,7 +4,7 @@ This module provides an exploratory framework for understanding the technical ef
 
 ## Features
 - Principal component regression (PCR) analysis for quantifying linear effects of technical covariates on data
-- Theil's U analysis for quantifying the association between categorical covariates and principal components
+- Theil's U analysis for quantifying the pairwise association between covariates at sample level
 - Pseudobulk generation and PCA plotting for sample-level exploration of batch structure
 - Optional preprocessing pipeline: normalization, gene filtering, PCA
 - Parallelized computation of batch PCR for scalability
@@ -23,10 +23,14 @@ Configure the module under your dataset key using the `batch_analysis` section. 
 - `sample`: column(s) in `.obs` to use as the sample key (can be comma-separated for composite keys). It should represent the smallest common grouping of a technical effect and the covariate of interest. An error will be thrown if this is not the case.
 - `covariates`: list of covariate columns in `.obs` to test for batch effects. These covariates are also used to color the pseudobulk PCA plots and to generate the Theil's U heatmap.
 - `permute_covariates`: (optional) list of covariates to permute for computing a z-score. If not specified, all `covariates` will be used for permutations. The covariates will be permuted per sample to compute empirical null distributions 
-- `n_permutations`: number of permutations for each covariate
+- `n_permutations`: number of permutations for each covariate (default: 10)
+- `na_strings`: (optional) values treated as missing in covariates (default: `['NA', 'NaN', 'nan', '', 'unknown']`)
+- `raw_counts`: (optional) slot with counts that are aggregated into pseudobulks (default: `X`)
+- `max_threads`: (optional) maximum number of threads for pseudobulk aggregation and permutations (default: 1)
+- `pca_plot`: (optional) settings for the pseudobulk PCA plots: `plot_centroids`, `plot_gene_chunk_size`, `size` (default: 50)
 - Step-specific overrides (e.g., `normalize`, `highly_variable_genes`, `pca`) for preprocessing
 
-> **Note:** Preprocessing steps such as normalization, and PCA are optional. Each step will only be executed if its corresponding key (`normalize`, `highly_variable_genes`, `pca`) is defined in your configuration. If a key is omitted, that step will be skipped for the dataset.
+> **Note:** Preprocessing steps such as normalization, and PCA are optional. A step is only executed if its corresponding key (`normalize`, `highly_variable_genes`, `pca`) is defined in your configuration and the result is used by a later step: PCA is only computed if `pca` is defined, gene filtering and highly variable gene selection only if both `highly_variable_genes` and `pca` are defined, and normalization only if all three keys are defined.
 
 ### Example configuration
 
@@ -90,7 +94,7 @@ flowchart TD
 
 1. **Preprocessing** (optional)
   - Steps: normalize, filter genes, HVG selection, PCA
-  - Each preprocessing step is optional and will only be executed if its corresponding key is defined in the configuration. For example, if `normalize` is defined, normalization and all downstream steps will be performed until PCA; if `pca` is defined, only PCA will be computed. This allows users to skip preprocessing if their input data is already preprocessed and contains the necessary PCA information for batch PCR analysis.
+  - Each preprocessing step is optional and will only be executed if its corresponding key is defined in the configuration and its output is consumed downstream. For example, if only `pca` is defined, only PCA will be computed on the input; if `normalize`, `highly_variable_genes` and `pca` are defined, all steps are performed. This allows users to skip preprocessing if their input data is already preprocessed and contains the necessary PCA information for batch PCR analysis.
   - Uses rules from the preprocessing module, with dataset-specific overrides.
 2. **Prepare data**:
   - Sets sample key for pseudobulk aggregation and PCR analysis based on the configured `sample` key. The sample key represents the smallest common grouping of a technical effect and the covariate of interest (e.g., `batch` or `donor`).
@@ -104,7 +108,7 @@ flowchart TD
    - Aggregates per-covariate results into a single table.
 6. **Plot**:
   - Generates barplots and violin plots summarizing PCR and permutation results.
-  - Generates Theil's U plots to visualize the association between covariates and principal components.
+  - Generates a Theil's U heatmap to visualize the pairwise association between covariates.
 
 ## Output
 
@@ -115,7 +119,7 @@ flowchart TD
 ### Principal regression analysis
 - Per-covariate PCR results: `<output_dir>/batch_analysis/dataset~<dataset>/file_id~<file_id>/batch_pcr/{covariate}.tsv`
 - Aggregated results: `<output_dir>/batch_analysis/dataset~<dataset>/file_id~<file_id>/batch_pcr.tsv`
-- Plots: `<images>/batch_analysis/dataset~<dataset>/file_id~<file_id>/batch_pcr_bar.png`, `<images>/<dataset>/batch_pcr_violin.png`
+- Plots: `<images>/batch_analysis/dataset~<dataset>/file_id~<file_id>/batch_pcr_bar.png`, `<images>/batch_analysis/dataset~<dataset>/file_id~<file_id>/batch_pcr_violin.png`
 
 Each result file contains columns such as:
 - `covariate`: tested covariate
@@ -123,10 +127,11 @@ Each result file contains columns such as:
 - `permuted`: whether the score is from a permutation
 - `n_covariates`: number of unique values in the covariate
 - `z_score`: z-score of observed PCR vs. permutations
+- `p-val`, `signif`: empirical p-value and significance stars
 
 
 ### Theil's U
-- Results: `<images>/batch_analysis/dataset~<dataset>/file_id~<file_id>/theils_u.tsv`
+- Results: `<output_dir>/batch_analysis/dataset~<dataset>/file_id~<file_id>/theils_u.tsv`
 - Plots: `<images>/batch_analysis/dataset~<dataset>/file_id~<file_id>/theils_u_heatmap.png`
 
 ## Testing
