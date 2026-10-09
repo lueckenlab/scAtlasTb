@@ -1,5 +1,29 @@
 # Collect
 
+```mermaid
+flowchart TD
+  in(["Several AnnData files<br/>with the same cells and genes"])
+  align["Align cell and gene order to the first file<br/>(error if the sets differ)"]
+  same["Take same_slots from the first file"]
+  shared["Find .obs columns identical in all files"]
+  df["obs / var: combine columns side by side<br/>non-shared columns get suffix sep + file_id"]
+  xs["X: becomes layers X + sep + file_id"]
+  dict["layers / obsm / obsp / uns:<br/>keys get suffix sep + file_id"]
+  out(["Collected AnnData"])
+  in --> align
+  align --> same
+  align -->|merge_slots| shared
+  shared --> df
+  align -->|merge_slots| xs
+  align -->|merge_slots| dict
+  same --> out
+  df --> out
+  xs --> out
+  dict --> out
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/collect/README.md
 :heading-offset: 1
 ```

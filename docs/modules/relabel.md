@@ -1,5 +1,20 @@
 # Relabel
 
+```mermaid
+flowchart TD
+  in(["AnnData .obs"])
+  rc["Copy columns under new names<br/>(rename_columns)"]
+  ro["Rename .obsm keys<br/>(rename_obsm_keys)"]
+  nc["Map new columns from a table<br/>(new_columns: from first column of order)"]
+  mc["Join columns into combined labels<br/>(merge_columns)"]
+  su["Overwrite labels for selected cells<br/>(selective_update with query)"]
+  out(["AnnData with relabelled .obs"])
+  in -->|each step only if configured, in this order| rc
+  rc --> ro --> nc --> mc --> su --> out
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/relabel/README.md
 :heading-offset: 1
 ```

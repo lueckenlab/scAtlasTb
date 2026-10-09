@@ -2,12 +2,18 @@
 
 ```mermaid
 flowchart TD
-  r_link["link"]
-  r_split["split"]
-  r_split --> r_link
+  in(["AnnData"])
+  key["Read split column obs[key]<br/>(values as strings)"]
+  match["Match requested values to categories<br/>(spaces and / replaced by _)"]
+  err["Error for values not present"]
+  sel["For each value: select cells<br/>with obs[key] == value"]
+  out(["One AnnData per value<br/>(all genes kept)"])
+  in --> key --> match
+  match -.->|fail_on_empty_subset| err
+  match --> sel --> out
 ```
 
-*Rule graph of the `split_data` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/split_data/README.md
 :heading-offset: 1

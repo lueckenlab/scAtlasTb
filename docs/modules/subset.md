@@ -1,5 +1,23 @@
 # Subset
 
+```mermaid
+flowchart TD
+  in(["AnnData with sample column"])
+  shuf["Shuffle samples<br/>(reproducible, seed)"]
+  bs["Add whole samples until n_cells is exceeded<br/>(skip samples with fewer than 100 cells)"]
+  ws["Draw k random cells per sample until n_cells<br/>k = per_sample or n_cells / n_samples<br/>(skip samples with fewer than k cells)"]
+  sub["Subset to selected cells<br/>(all genes kept)"]
+  out(["Subsetted AnnData"])
+  in --> shuf
+  shuf -->|by_sample| bs
+  shuf -->|within_sample| ws
+  bs --> sub
+  ws --> sub
+  sub --> out
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/subset/README.md
 :heading-offset: 1
 ```

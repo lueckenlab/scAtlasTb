@@ -2,14 +2,18 @@
 
 ```mermaid
 flowchart TD
-  r_uncollect["uncollect"]
-  input_collect(["collect module"])
-  input_collect --> r_uncollect
-  classDef external fill:#eee,stroke:#999,stroke-dasharray: 4 3,color:#555
-  class input_collect external
+  in(["Collected AnnData<br/>(names suffixed with sep + file_id)"])
+  nid["For each new_file_id"]
+  keep["Per slot: keep columns / keys that belong to new_file_id<br/>or carry no file id"]
+  strip["Remove the file id from their names<br/>(e.g. cell_type--file_1 → cell_type)"]
+  xs["Keep X and raw unchanged"]
+  out(["One AnnData per new_file_id"])
+  in --> nid
+  nid --> keep --> strip --> out
+  nid --> xs --> out
 ```
 
-*Rule graph of the `uncollect` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/uncollect/README.md
 :heading-offset: 1

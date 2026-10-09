@@ -1,5 +1,32 @@
 # Merge
 
+```mermaid
+flowchart TD
+  in(["Several AnnData files"])
+  prep["Drop empty files<br/>record file_id per cell"]
+  cat["Concatenate cells<br/>sc.concat"]
+  gin["Keep shared genes only"]
+  gout["Keep union of genes<br/>(missing values zero-filled)"]
+  dup["Remove duplicate cell names<br/>check gene names are unique"]
+  var["Restore gene annotations (.var)"]
+  obs["Restore all .obs columns"]
+  idx["Assign new cell names"]
+  out(["Merged AnnData"])
+  in --> prep --> cat
+  cat -->|merge_strategy: inner| gin
+  cat -->|merge_strategy: outer| gout
+  gin --> dup
+  gout --> dup
+  dup --> var
+  var -.->|keep_all_columns| obs
+  var -.->|new_indices| idx
+  var --> out
+  obs --> out
+  idx --> out
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/merge/README.md
 :heading-offset: 1
 ```

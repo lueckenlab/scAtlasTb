@@ -2,21 +2,28 @@
 
 ```mermaid
 flowchart TD
-  r_merge_organ["merge_organ"]
-  r_filter_study["filter_study"]
-  r_add_dcp_metadata["add_dcp_metadata"]
-  r_merge_study["merge_study"]
-  r_harmonize_metadata["harmonize_metadata"]
-  r_download["download"]
-  r_add_dcp_metadata --> r_filter_study
-  r_download --> r_harmonize_metadata
-  r_filter_study --> r_merge_organ
-  r_harmonize_metadata --> r_merge_study
-  r_merge_study --> r_add_dcp_metadata
-  r_merge_study --> r_filter_study
+  in(["Dataset table + schema mapping"])
+  dl["Download dataset<br/>(CELLxGENE, HCA DCP or URL)"]
+  harm["Harmonize metadata per dataset<br/>counts in X, map columns to CELLxGENE schema"]
+  ms["Merge datasets per study<br/>(inner join of genes)"]
+  dcp["Add HCA DCP metadata<br/>(match donor / sample IDs)"]
+  filt["Flag cells to remove per study<br/>(remove_by_column, no cells dropped)"]
+  mo["Merge studies per organ<br/>(inner join of genes)"]
+  msub["Merge studies per organ × subset"]
+  out(["Harmonized organ-level AnnData"])
+  in -.->|if not a local file| dl
+  in --> harm
+  dl --> harm
+  harm --> ms
+  ms -.->|optional| dcp
+  ms --> filt
+  dcp --> filt
+  filt --> mo
+  filt -.->|optional| msub
+  mo --> out
 ```
 
-*Rule graph of the `load_data` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/load_data/README.md
 :heading-offset: 1
