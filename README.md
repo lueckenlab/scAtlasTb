@@ -56,11 +56,6 @@ The [quickstart](https://scatlastb.readthedocs.io/en/latest/getting_started/quic
 Write a configuration file for your data following the [configuration guide](https://scatlastb.readthedocs.io/en/latest/getting_started/configure_workflow.html) and [call the pipeline](https://scatlastb.readthedocs.io/en/latest/getting_started/call_pipeline.html) with it.
 Each module is described in detail in the [module documentation](https://scatlastb.readthedocs.io/en/latest/modules/index_data_preparation.html).
 
-### Reproduction
-
-<!-- TODO(user): add link to the reproducibility repository/instructions for the manuscript results -->
-Instructions for reproducing the results of the manuscript are available at: TODO.
-
 
 ## 🧰 Which Modules does the Toolbox Support?
 
