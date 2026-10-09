@@ -1,5 +1,14 @@
 # Split Data
 
+```mermaid
+flowchart TD
+  r_link["link"]
+  r_split["split"]
+  r_split --> r_link
+```
+
+*Rule graph of the `split_data` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/split_data/README.md
 :heading-offset: 1
 ```

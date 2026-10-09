@@ -1,5 +1,16 @@
 # Uncollect
 
+```mermaid
+flowchart TD
+  r_uncollect["uncollect"]
+  input_collect(["collect module"])
+  input_collect --> r_uncollect
+  classDef external fill:#eee,stroke:#999,stroke-dasharray: 4 3,color:#555
+  class input_collect external
+```
+
+*Rule graph of the `uncollect` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/uncollect/README.md
 :heading-offset: 1
 ```

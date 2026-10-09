@@ -1,5 +1,23 @@
 # Data loading
 
+```mermaid
+flowchart TD
+  r_merge_organ["merge_organ"]
+  r_filter_study["filter_study"]
+  r_add_dcp_metadata["add_dcp_metadata"]
+  r_merge_study["merge_study"]
+  r_harmonize_metadata["harmonize_metadata"]
+  r_download["download"]
+  r_add_dcp_metadata --> r_filter_study
+  r_download --> r_harmonize_metadata
+  r_filter_study --> r_merge_organ
+  r_harmonize_metadata --> r_merge_study
+  r_merge_study --> r_add_dcp_metadata
+  r_merge_study --> r_filter_study
+```
+
+*Rule graph of the `load_data` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/load_data/README.md
 :heading-offset: 1
 ```
