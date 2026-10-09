@@ -25,7 +25,7 @@ Configure the module under your dataset key using the `metrics` section. Common 
 - `batch`: batch column in `.obs`
 - `unintegrated`: slot for unintegrated counts/embedding (e.g. `layers/norm_counts` or `X`)
 - `corrected`: slot for corrected representation when evaluating a single file
-- `raw_counts`: slot for raw (unnormalised) counts, only needed by metrics that use gene sets
+- `raw_counts`: slot for raw (unnormalised) counts (currently not used by any rule; gene scores are computed on the `unintegrated` slot)
 - `var_mask`: `.var` mask name to subset features (default `highly_variable`)
 - `recompute_neighbors`: whether to recompute neighbors even if they exist in the AnnData object (default `false`). Will only be recomputed for non kNN outputs
 - `clustering`: optional args for cluster-based metrics; supports `kwargs`, `overwrite`, and `precomputed_key` (see `clustering` module for more details)
@@ -36,10 +36,10 @@ Configure the module under your dataset key using the `metrics` section. Common 
 - `parse_file_id`: whether to parse the file_id (e.g. `model1--param=a`) into additional columns in the results table (default `false`)
 - `funkyheatmap`: optional configuration for funkyheatmap plots
   - `group_col`: column to use for grouping rows in the heatmap
-  - `weight_batch`: weight of batch score in the overall score (overrides top-level `weight_batch`)
+  - `weight_batch`: weight of batch score in the overall score (default `0.4`)
   - `n_top`: number of top methods to show in the overall heatmap (default `50`)
   - `scale`: whether to scale scores to [0, 1] per metric (default `false`)
-  - `dpi`: resolution of output PNG plots (default `300`)
+  - `dpi`: resolution of output plots (currently not passed by the rules, so the default `300` is always used)
 
 ### Example configuration
 
@@ -192,22 +192,21 @@ MARKER_GENES:
 
 ## Output
 
-The output directory are `<out_dir>/metrics` for the metrics and `<out_dir>/images/metrics` for the plots.
+The output directory are `<out_dir>/metrics` for the metrics and `<images>/metrics` for the plots.
 
 For each input file, there exists one output file containing an `AnnData` object in `<out_dir>/metrics/dataset~{dataset}/file_id~{file_id}.zarr`, where the metrics DataFrame is stored in `.uns['metrics']`.
 
 In addition, merged result tables are written to:
 
 - `results/metrics.tsv` (all datasets/files)
-- `results/per_dataset/{dataset}_metrics.tsv`
-- `results/per_batch/{batch}_metrics.tsv`
-- `results/per_label/{label}_metrics.tsv`
+- `results/dataset~{dataset}/metrics.tsv`
+- `results/dataset~{dataset}/batch~{batch}/metrics.tsv`
+- `results/dataset~{dataset}/label~{label}/metrics.tsv`
 
-Plots are written to `images/metrics/`:
+Plots are written to `<images>/metrics/`:
 
-- Barplots per all/dataset/file: `{metric}-barplot.png`
-- Swarmplots per all/dataset/file: `{metric}-swarmplot.png`
-- Funkyheatmap summaries: `all/per_dataset/per_batch/per_label/funky_heatmap.(pdf|tsv)`
+- Barplots for all tasks (`all/`) and per task (`dataset~{dataset}/`): `{score,s,max_uss}-barplot.png` (score, runtime and memory)
+- Funkyheatmap summaries for all tasks and per task: `all/` and `dataset~{dataset}/` containing `funky_heatmap.pdf`, `funky_heatmap_overall_metrics.pdf` and `funky_heatmap.tsv`
 
 E.g.
 
@@ -240,14 +239,14 @@ The metrics requirements are encoded in `params.tsv`:
 - `output_types` (`knn`, `embed`, `full`) the output types (representation types) for which the metric will be computed. If an input file has an output type that does not apply to a metric, no metric will be computed and `np.nan` will be return instead.
 - `input_type` the representation type used by the metric after computing e.g. PCA or kNN in the prepare step. E.g. if a metric requires a low-dimensional embedding, it is not limited to embedding integrations, but can also be applied on the PCA of a feature output integration.
 - `comparison` whether the metric compares to the unintegrated representation
-- `needs_clustering` whether the metrics requires Leiden clustering for multiple resolutions [0.1 - 2.0]
+- `needs_clustering` whether the metrics requires Leiden clustering for multiple resolutions (0.2 to 2.0 in steps of 0.2)
 - `use_covariate` whether the metric uses custom covariates. Currently all covariates are assumed to contain biological signal and the resulting metric is considered to be a bio conservation metric
 - `use_gene_set` whether the metric uses a gene set
 - `env` which environment to use
 - `resources` (cpu/gpu)
 - `threads` number of threads to provide for the metric call
 
-These features inform the `scripts/metrics/run.py` on the required preparation steps as what parts of the object need to be read for efficient computation.
+These features inform the `scripts/run.py` on the required preparation steps as what parts of the object need to be read for efficient computation.
 
 ## Testing
 
