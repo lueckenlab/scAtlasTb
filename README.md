@@ -61,6 +61,39 @@ Each module is described in detail in the [module documentation](https://scatlas
 
 The modules are located under `workflow/` and can be run independently or combined into a more complex workflow.
 
+The diagram below shows a typical combination of modules for building an integrated atlas.
+Each arrow means that the output of one module is used as input to the next one; the actual combination is defined by the `input` mapping in your configuration.
+
+```mermaid
+flowchart LR
+  subgraph prep["Data preparation"]
+    load_data --> qc
+    load_data --> doublets
+    qc --> filter
+    doublets --> filter
+    filter --> merge
+    merge --> exploration
+    merge --> batch_analysis
+    merge --> preprocessing
+  end
+  subgraph integ["Integration"]
+    integration --> metrics
+  end
+  subgraph down["Downstream analysis"]
+    clustering --> marker_genes
+    label_harmonization
+    label_transfer
+    majority_voting
+    celltype_prediction
+    reference_mapping
+    sample_representation
+  end
+  preprocessing --> integration
+  integration --> down
+```
+
+Helper modules (`subset`, `split_data`, `relabel`, `collect`, `uncollect`) can be inserted at any point to reshape inputs and outputs.
+
 <details>
 <summary><b>Click to expand the full list of modules</b></summary>
 
