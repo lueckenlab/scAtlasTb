@@ -58,6 +58,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
     *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
 
@@ -79,6 +80,7 @@ myst_enable_extensions = [
     "html_admonition",
 ]
 myst_url_schemes = ("http", "https", "mailto")
+myst_fence_as_directive = ["mermaid"]  # render ```mermaid fences (as on GitHub)
 nb_output_stderr = "remove"
 nb_execution_mode = "off"
 nb_merge_streams = True
