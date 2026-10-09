@@ -46,8 +46,8 @@ Reference cell type labels can optionally be provided for evaluation and visuali
 
 - **`counts`** (default: `'X'`): Which data layer to use from the AnnData object
 
-- **`is_normalized`** (default: `true`): Boolean flag indicating whether the input data is already normalized
-  - CellTypist expects log-normalized data, so this parameter controls preprocessing
+- **`is_normalized`** (default: `false` for CellTypist): Boolean flag indicating whether the input data is already normalized
+  - CellTypist expects log-normalized data; if `false`, the data are normalized to 10,000 counts per cell and log1p-transformed before prediction
 
 - **`reference_label`** (optional): Column name in `.obs` containing reference cell type labels for comparison and visualization
 
@@ -62,6 +62,16 @@ Configuration for CellTypist cell type prediction:
   - **`majority_voting`**: Enable majority voting across over-clustering results (default: `false`)
   - **`over_clustering`**: Column name in `.obs` for over-clustering analysis (optional)
 
+#### Sex prediction (`predict_sex`, optional)
+If set, donor sex is predicted from X- and Y-linked gene expression:
+
+- **`donor_key`** (required): `.obs` column with donor IDs
+- **`donors`**: optional list of donors to restrict prediction to
+- **`predict_column`** (default: `sex`): name of the output column
+- **`reference_key`** (default: value of `predict_column`): `.obs` column with known sex for accuracy reporting
+- **`x_genes`**, **`y_genes`**, **`x_threshold`** (default `0`), **`y_threshold`** (default `4`), **`imbalance_frac`** (default `0.1`): parameters of the X/Y expression rule
+- **`y_nonpar_genes`**, **`y_par_genes`**, **`chrY_threshold`** (default `0.5`): parameters of the chrY non-PAR/PAR ratio rule; gene lists may be given as gene names, text files or URLs
+
 > **Note:** CellTypist models are trained on specific tissue types and cell populations. Choose models appropriate for your data type (e.g., PBMC, immune cells, etc.).
 
 ## Output
@@ -75,4 +85,5 @@ The cell type prediction workflow produces the following outputs:
   - **Over-clustering results** (`obs['celltypist_<model>:over_clustering']`): Fine-grained clustering results (if specified)
   - **Confidence scores** (`obs['celltypist_<model>:conf_score']`): Prediction confidence values
 
-* `<out_dir>/images/`: Visualization plots comparing predictions with reference labels (if provided)
+* `<images>/celltype_prediction/dataset~<dataset>/file_id~<file_id>/celltypist--<model>/`: Dot plots comparing predictions with reference labels (if `reference_label` is provided)
+* If `predict_sex` is configured, the annotated AnnData object additionally contains `obs['<predict_column>']`, `obs['<predict_column>_chrY']` and `uns['predict_sex']`
