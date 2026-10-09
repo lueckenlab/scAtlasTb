@@ -19,21 +19,6 @@ flowchart TD
   data --> pre --> int --> met --> res
 ```
 
-```{figure} ../_static/quickstart_rulegraph.svg
-:alt: Snakemake rule graph of the demo
-:width: 100%
-
-Rule graph of the demo, created with `snakemake --rulegraph` (see [Expected output](#3-expected-output) for the files it produces).
-Each node is a Snakemake rule (prefixed by its module), each arrow means that the output of one rule is input to the other.
-Jobs are created per input file, integration method, output type and metric, so the demo runs 341 jobs.
-```
-
-You can create the rule graph for any workflow configuration with:
-
-```
-bash run_example.sh preprocessing_all integration_all metrics_all --rulegraph | dot -Tsvg > rulegraph.svg
-```
-
 ## Prerequisites
 
 1. You have cloned the repository and installed the [demo environments](installation.md#environments-for-the-demo).
