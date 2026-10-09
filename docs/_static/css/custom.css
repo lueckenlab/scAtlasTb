@@ -1,13 +1,11 @@
-/* Tables: let long inline code (file paths, AnnData slots, column lists) wrap,
-   so that a single long entry doesn't make its column take up the whole table.
+/* Let long inline code (file paths, AnnData slots, column lists) wrap, in tables and in
+   running text, instead of overflowing the page or making a single table column very wide.
    Sphinx wraps inline code in <span class="pre">, which sets white-space: pre.
-   Break opportunities after "/", "_", ",", ".", "(", "=" and ":" are added by js/table-wrap.js;
+   Line-break opportunities after / _ , . ( = : ~ - are added by js/table-wrap.js;
    break-word only splits a segment mid-word if it does not fit otherwise. */
-article table td code,
-article table td code span.pre,
-article table th code,
-article table th code span.pre {
-    white-space: normal;
+article code.literal,
+article code.literal span.pre {
+    white-space: pre-wrap;
     overflow-wrap: break-word;
 }
 
