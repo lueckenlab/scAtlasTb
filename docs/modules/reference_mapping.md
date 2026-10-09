@@ -1,5 +1,18 @@
 # Reference Mapping
 
+```mermaid
+flowchart TD
+  r_compute_umap["compute_umap"]
+  r_neighbors["neighbors"]
+  r_scarches["scarches"]
+  r_plot_umap["plot_umap"]
+  r_compute_umap --> r_plot_umap
+  r_neighbors --> r_compute_umap
+  r_scarches --> r_neighbors
+```
+
+*Rule graph of the `reference_mapping` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/reference_mapping/README.md
 :heading-offset: 1
 ```

@@ -1,5 +1,35 @@
 # Label Harmonization
 
+```mermaid
+flowchart TD
+  r_cellhint["cellhint"]
+  r_split_cellhint_groups["split_cellhint_groups"]
+  r_plot_umap["plot_umap"]
+  r_umap["umap"]
+  r_neighbors["neighbors"]
+  r_collect_plots["collect_plots"]
+  r_cellhint --> r_split_cellhint_groups
+  r_neighbors --> r_umap
+  r_split_cellhint_groups --> r_collect_plots
+  r_umap --> r_plot_umap
+  %% added from code (after checkpoint)
+  r_cellhint_umap_per_group["cellhint_umap_per_group"]
+  r_cellhint_plots["cellhint_plots"]
+  r_cellhint_dotplot["cellhint_dotplot"]
+  r_cellhint --> r_cellhint_umap_per_group
+  r_cellhint --> r_cellhint_plots
+  r_cellhint --> r_cellhint_dotplot
+  r_split_cellhint_groups --> r_cellhint_umap_per_group
+  r_split_cellhint_groups --> r_cellhint_plots
+  r_split_cellhint_groups --> r_cellhint_dotplot
+  r_umap --> r_cellhint_umap_per_group
+  r_cellhint_umap_per_group --> r_collect_plots
+  r_cellhint_plots --> r_collect_plots
+  r_cellhint_dotplot --> r_collect_plots
+```
+
+*Rule graph of the `label_harmonization` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/label_harmonization/README.md
 :heading-offset: 1
 ```

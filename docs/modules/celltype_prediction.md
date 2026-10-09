@@ -1,5 +1,18 @@
 # Cell Type Prediction
 
+```mermaid
+flowchart TD
+  r_collect["collect"]
+  r_celltypist["celltypist"]
+  r_celltypist_get_model["celltypist_get_model"]
+  r_predict_sex["predict_sex"]
+  r_celltypist --> r_collect
+  r_celltypist_get_model --> r_celltypist
+  r_predict_sex --> r_collect
+```
+
+*Rule graph of the `celltype_prediction` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/celltype_prediction/README.md
 :heading-offset: 1
 ```

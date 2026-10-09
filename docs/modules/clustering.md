@@ -1,5 +1,23 @@
 # Clustering
 
+```mermaid
+flowchart TD
+  r_merge["merge"]
+  r_compute_umap["compute_umap"]
+  r_compute_neighbors["compute_neighbors"]
+  r_cluster["cluster"]
+  r_plot_umap["plot_umap"]
+  r_cluster --> r_merge
+  r_compute_neighbors --> r_cluster
+  r_compute_neighbors --> r_compute_umap
+  r_compute_umap --> r_merge
+  r_merge --> r_plot_umap
+  %% self-loop present in the rulegraph (hierarchy level n-1 -> level n), re-added after conversion
+  r_cluster --> r_cluster
+```
+
+*Rule graph of the `clustering` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/clustering/README.md
 :heading-offset: 1
 ```

@@ -1,5 +1,22 @@
 # Sample Representation
 
+```mermaid
+flowchart TD
+  r_prepare["prepare"]
+  r_run_method["run_method"]
+  r_plot_distances["plot_distances"]
+  r_plot_umap["plot_umap"]
+  r_compute_umap["compute_umap"]
+  r_plot_emb["plot_emb"]
+  r_compute_umap --> r_plot_umap
+  r_prepare --> r_run_method
+  r_run_method --> r_compute_umap
+  r_run_method --> r_plot_distances
+  r_run_method --> r_plot_emb
+```
+
+*Rule graph of the `sample_representation` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/sample_representation/README.md
 :heading-offset: 1
 ```

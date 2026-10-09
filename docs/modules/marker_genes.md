@@ -1,5 +1,17 @@
 # Marker Genes
 
+```mermaid
+flowchart TD
+  r_plot["plot"]
+  r_rank_genes_groups["rank_genes_groups"]
+  r_plot_user["plot_user"]
+  r_collect["collect"]
+  r_rank_genes_groups --> r_collect
+  r_rank_genes_groups --> r_plot
+```
+
+*Rule graph of the `marker_genes` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/marker_genes/README.md
 :heading-offset: 1
 ```
