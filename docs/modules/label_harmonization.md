@@ -24,8 +24,11 @@ flowchart TD
 
 *Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
+## Module description
+
 ```{include} ../../workflow/label_harmonization/README.md
 :heading-offset: 1
+:start-line: 1
 ```
 
 ## Functional description

@@ -1,7 +1,10 @@
 # Common
 
+## Module description
+
 ```{include} ../../workflow/common/README.md
 :heading-offset: 1
+:start-line: 1
 ```
 
 ## Functional description
