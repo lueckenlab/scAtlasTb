@@ -82,16 +82,6 @@ The example configuration above demonstrates how to set up the `batch_analysis` 
 
 The batch_analysis workflow consists of the following steps:
 
-```mermaid
-flowchart TD
-  A[Preprocessing] --> B[Prepare data]
-  B --> C[Theil's U]
-  B --> D[Pseudobulk PCA plot]
-  B --> E{determine covariates}
-  E --> F[PC regression]
-  F --> G[Plots]
-```
-
 1. **Preprocessing** (optional)
   - Steps: normalize, filter genes, HVG selection, PCA
   - Each preprocessing step is optional and will only be executed if its corresponding key is defined in the configuration and its output is consumed downstream. For example, if only `pca` is defined, only PCA will be computed on the input; if `normalize`, `highly_variable_genes` and `pca` are defined, all steps are performed. This allows users to skip preprocessing if their input data is already preprocessed and contains the necessary PCA information for batch PCR analysis.

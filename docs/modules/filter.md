@@ -1,5 +1,20 @@
 # Filter
 
+```mermaid
+flowchart TD
+  in(["Input AnnData"])
+  keep["Keep cells matching any keep filter<br/>keep_by_column / keep_by_query<br/>(all cells if no keep filter)"]
+  rem["Remove cells matching any remove filter<br/>remove_by_column / remove_by_query"]
+  mask["Cell mask obs['filtered']"]
+  sub["Subset to passing cells"]
+  out(["Filtered AnnData"])
+  in --> keep --> rem --> mask
+  mask -->|"subset: true"| sub --> out
+  mask -->|"subset: false"| out
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/filter/README.md
 :heading-offset: 1
 ```

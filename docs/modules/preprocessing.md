@@ -2,34 +2,22 @@
 
 ```mermaid
 flowchart TD
-  r_assemble["assemble"]
-  r_normalize["normalize"]
-  r_highly_variable_genes["highly_variable_genes"]
-  r_filter_genes["filter_genes"]
-  r_extra_hvgs["extra_hvgs"]
-  r_pca["pca"]
-  r_neighbors["neighbors"]
-  r_umap["umap"]
-  r_plot_pca["plot_pca"]
-  r_plot_umap["plot_umap"]
-  r_extra_hvgs --> r_assemble
-  r_filter_genes --> r_extra_hvgs
-  r_filter_genes --> r_highly_variable_genes
-  r_highly_variable_genes --> r_assemble
-  r_highly_variable_genes --> r_pca
-  r_neighbors --> r_assemble
-  r_neighbors --> r_umap
-  r_normalize --> r_assemble
-  r_normalize --> r_filter_genes
-  r_pca --> r_assemble
-  r_pca --> r_neighbors
-  r_pca --> r_plot_pca
-  r_pca --> r_umap
-  r_umap --> r_assemble
-  r_umap --> r_plot_umap
+  in(["Raw counts (AnnData)"])
+  norm["Normalize counts<br/>normalize_total + log1p"]
+  expr["Flag expressed genes<br/>(mask only, no genes removed)"]
+  hvg["Select highly variable genes<br/>(optionally per batch, parameter sweeps)"]
+  extra["Extra HVG mask<br/>(union over groups, add/remove genes)"]
+  pca["PCA on HVGs"]
+  knn["kNN graph"]
+  umap["UMAP"]
+  out(["Preprocessed AnnData<br/>normalized counts, HVG masks, PCA, kNN graph, UMAP"])
+  plots(["PCA and UMAP plots"])
+  in --> norm --> expr --> hvg --> pca --> knn --> umap --> out
+  expr -.->|optional| extra -.-> out
+  umap --> plots
 ```
 
-*Rule graph of the `preprocessing` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/preprocessing/README.md
 :heading-offset: 1

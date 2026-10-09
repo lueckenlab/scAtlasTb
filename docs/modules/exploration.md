@@ -2,15 +2,20 @@
 
 ```mermaid
 flowchart TD
-  %% summary_stats_all kept: unlike other *_all rules it is a real aggregation rule with outputs
-  r_summary_stats_all["summary_stats_all"]
-  r_summary_stats["summary_stats"]
-  r_marker_genes["marker_genes"]
-  r_barcode_matching["barcode_matching"]
-  r_summary_stats --> r_summary_stats_all
+  in(["Harmonized AnnData"])
+  stats["Summary statistics per file<br/>cells, samples, donors, QC medians"]
+  agg["Combine statistics per dataset"]
+  mk["Marker gene expression<br/>by author annotation and cell type"]
+  bc["Barcodes shared between samples"]
+  o1(["Summary tables + bar plots"])
+  o2(["Marker gene dot plots"])
+  o3(["UpSet plot"])
+  in --> stats --> agg --> o1
+  in --> mk --> o2
+  in --> bc --> o3
 ```
 
-*Rule graph of the `exploration` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/exploration/README.md
 :heading-offset: 1

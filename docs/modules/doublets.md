@@ -2,19 +2,19 @@
 
 ```mermaid
 flowchart TD
-  r_split_batches["split_batches"]
-  r_collect["collect"]
-  r_split_batches --> r_collect
-  %% added from code (after checkpoint)
-  r_scrublet["scrublet"]
-  r_doubletdetection["doubletdetection"]
-  r_split_batches --> r_scrublet
-  r_split_batches --> r_doubletdetection
-  r_scrublet --> r_collect
-  r_doubletdetection --> r_collect
+  in(["Raw counts (AnnData)"])
+  batch["Process each batch separately"]
+  skip["Batches with fewer than 100 cells:<br/>score 0, not called"]
+  scr["Scrublet<br/>simulated doublets + kNN score"]
+  dd["DoubletDetection<br/>boosted classifier"]
+  out(["Doublet scores + predictions per cell"])
+  in --> batch
+  batch -->|default| scr --> out
+  batch -.->|optional| dd -.-> out
+  batch --> skip --> out
 ```
 
-*Rule graph of the `doublets` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/doublets/README.md
 :heading-offset: 1

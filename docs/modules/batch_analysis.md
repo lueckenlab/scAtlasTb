@@ -2,34 +2,26 @@
 
 ```mermaid
 flowchart TD
-  r_prepare["prepare"]
-  r_pca["pca"]
-  r_highly_variable_genes["highly_variable_genes"]
-  r_filter_genes["filter_genes"]
-  r_normalize["normalize"]
-  r_pb_pca_plot["pb_pca_plot"]
-  r_pb_pca["pb_pca"]
-  r_theils_u["theils_u"]
-  r_determine_covariates["determine_covariates"]
-  r_batch_pcr_plot["batch_pcr_plot"]
-  r_batch_pcr_collect["batch_pcr_collect"]
-  r_batch_pcr_collect --> r_batch_pcr_plot
-  r_determine_covariates --> r_batch_pcr_collect
-  r_filter_genes --> r_highly_variable_genes
-  r_highly_variable_genes --> r_pca
-  r_normalize --> r_filter_genes
-  r_pb_pca --> r_pb_pca_plot
-  r_pca --> r_prepare
-  r_prepare --> r_determine_covariates
-  r_prepare --> r_pb_pca
-  %% added from code (after checkpoint)
-  r_batch_pcr["batch_pcr"]
-  r_prepare --> r_batch_pcr
-  r_determine_covariates --> r_batch_pcr
-  r_batch_pcr --> r_batch_pcr_collect
+  in(["Input AnnData<br/>covariates in obs"])
+  pre["Normalize, select HVGs, PCA<br/>(if PCA is not in input)"]
+  grp["Define samples<br/>(sample key)"]
+  pb["Pseudobulk per sample<br/>sum counts + normalize/log1p"]
+  pbpca["Pseudobulk PCA"]
+  cov["Select valid covariates"]
+  pcr["PC regression per covariate<br/>on cell-level PCA"]
+  perm["Permute covariate across samples<br/>null distribution: z-score, p-value"]
+  theil["Theil's U between covariates<br/>at sample level"]
+  o1(["Covariate PCR scores + plots"])
+  o2(["Pseudobulk PCA plots"])
+  o3(["Theil's U heatmap"])
+  in --> grp
+  in -.->|optional| pre -.-> grp
+  grp --> pb --> pbpca --> o2
+  grp --> cov --> pcr --> perm --> o1
+  grp --> theil --> o3
 ```
 
-*Rule graph of the `batch_analysis` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/batch_analysis/README.md
 :heading-offset: 1

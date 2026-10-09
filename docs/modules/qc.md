@@ -2,21 +2,24 @@
 
 ```mermaid
 flowchart TD
-  r_autoqc["autoqc"]
-  r_get_thresholds["get_thresholds"]
-  r_merge_thresholds["merge_thresholds"]
-  r_plot_joint["plot_joint"]
-  r_plot_removed["plot_removed"]
-  r_plot_summary["plot_summary"]
-  r_autoqc --> r_get_thresholds
-  r_autoqc --> r_plot_summary
-  r_get_thresholds --> r_merge_thresholds
-  r_get_thresholds --> r_plot_joint
-  r_get_thresholds --> r_plot_removed
-  r_merge_thresholds --> r_plot_summary
+  in(["Raw counts (AnnData)"])
+  qcm["Compute QC metrics<br/>counts, genes, % mito / ribo / hb"]
+  auto["Automatic thresholds per metric<br/>Gaussian mixture fit (sctk AutoQC)"]
+  user["User thresholds<br/>(YAML or TSV)"]
+  upd["Combine thresholds<br/>user bounds overwrite AutoQC bounds"]
+  alt["Alternative thresholds"]
+  flag["Flag cells<br/>qc_status: passed / failed / ambiguous"]
+  out(["AnnData with QC metrics and qc_status<br/>(no cells removed)"])
+  plots(["QC plots + threshold tables"])
+  in --> qcm --> auto --> upd
+  user -.->|optional| upd
+  upd --> flag
+  alt -.->|optional| flag
+  flag --> out
+  flag --> plots
 ```
 
-*Rule graph of the `qc` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/qc/README.md
 :heading-offset: 1

@@ -2,22 +2,26 @@
 
 ```mermaid
 flowchart TD
-  r_run_method["run_method"]
-  r_prepare["prepare"]
-  r_postprocess["postprocess"]
-  r_barplot_per_dataset["barplot_per_dataset"]
-  r_benchmark_per_dataset["benchmark_per_dataset"]
-  r_plot_umap["plot_umap"]
-  r_compute_umap["compute_umap"]
-  r_benchmark_per_dataset --> r_barplot_per_dataset
-  r_compute_umap --> r_plot_umap
-  r_postprocess --> r_compute_umap
-  r_prepare --> r_run_method
-  r_run_method --> r_benchmark_per_dataset
-  r_run_method --> r_postprocess
+  in(["Preprocessed AnnData<br/>normalized + raw counts"])
+  feat["Select integration features<br/>(var_mask, expressed genes)"]
+  int["Run integration method<br/>per batch key, feature set and hyperparameters<br/>(e.g. scVI, scANVI, Harmony, Scanorama, BBKNN, ComBat)"]
+  pca["PCA on corrected matrix"]
+  knn["Compute kNN graph"]
+  keep["Use the method's kNN graph"]
+  umap["UMAP"]
+  out(["Integrated embedding / kNN graph"])
+  plots(["UMAP plots"])
+  in --> feat --> int
+  int -->|full| pca --> knn
+  int -->|embed| knn
+  int -->|knn| keep
+  knn --> umap
+  keep --> umap
+  umap --> out
+  umap --> plots
 ```
 
-*Rule graph of the `integration` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/integration/README.md
 :heading-offset: 1
