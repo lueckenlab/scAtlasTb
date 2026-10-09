@@ -218,9 +218,9 @@ nmi         scanvi   embed         bio_conservation   0.605
 asw_label   scanvi   embed         bio_conservation   0.605
 ```
 
-# Contributing to the module
+## Contributing to the module
 
-## Adding a new metric
+### Adding a new metric
 
 1. Create a new script in `scripts`, choose a good name for the script.
 2. Implement the metric according to the input/output specifications below.
@@ -231,7 +231,7 @@ asw_label   scanvi   embed         bio_conservation   0.605
 If needed, this module can be extended to use different environment files for different metrics (analogous to the
 integration module).
 
-## Metric paramters
+### Metric parameters
 
 The metrics requirements are encoded in `params.tsv`:
 
@@ -248,7 +248,7 @@ The metrics requirements are encoded in `params.tsv`:
 
 These features inform the `scripts/run.py` on the required preparation steps as what parts of the object need to be read for efficient computation.
 
-## Testing
+### Testing
 
 Activate the snakemake environment and call `test/run_test.sh` with run specific Snakemake parameters.
 

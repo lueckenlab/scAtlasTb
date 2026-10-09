@@ -1,4 +1,6 @@
-# Workflow
+# Data loading
+
+## Workflow
 
 Given a TSV file and a schema mapping, the pipeline does the following:
 
@@ -10,12 +12,12 @@ Given a TSV file and a schema mapping, the pipeline does the following:
 Examples of configuration files are under `test/configs/` (e.g. `test/configs/cellxgene.yaml` and `test/configs/dataset_info/cellxgene.tsv`).
 By default, dataset configurations are available under `configs` at the top-level pipeline (git root of this repository), but they can be modified or replaced by custom files.
 
-## Load data
+### Load data
 
 Files can either be read from a specified input file or downloaded from an URL, CELLxGENE or DCP directly.
 Which way a dataset is loaded, depends on the [dataset mapping](#dataset-file-mapping).
 
-## Aggregate Metadata
+### Aggregate Metadata
 
 The `harmonize_metadata` rule adds additional dataset-level information that is included from the input TSV file.
 This steps expects the data to follow
@@ -49,7 +51,7 @@ The output `AnnData` objects will contain:
 
 The `AnnData` is saved as a zarr file for a better speed to compression tradeoff compared ot gzipped h5ad files.
 
-## Merge Data
+### Merge Data
 
 This operation is applied by the following rules
 
@@ -60,7 +62,7 @@ This operation is applied by the following rules
 
 The `AnnData` must contain all the slots described in [Aggregate Metadata](#aggregate-metadata) apart from the `.uns` slot.
 
-## Filter
+### Filter
 
 Filter cells per study depending on the `config.yaml` specification.
 Two keys are available for controlling the filtering behaviour, `filter_per_organ` specifies global filter paramters
@@ -108,7 +110,7 @@ filter_per_study:
 Both keys can be empty or missing from the config file.
 In that case, no filtering is applied.
 
-# Preparing the input data
+## Preparing the input data
 
 In order to use the data loader module, you need to define the following files with the file locations and dataset-level metadata.
 
@@ -119,7 +121,7 @@ In order to use the data loader module, you need to define the following files w
 
 Additionally, you need to prepare your input `AnnData` files to contain the metadata that is defined in your dataset definition file.
 
-## Dataset definition file
+### Dataset definition file
 
 The dataset definition file should specify which datasets you want to include for your analyses together with any additional dataset-level metadata.
 
@@ -143,7 +145,7 @@ The dataset definition file should specify which datasets you want to include fo
 
 All other columns are optional and will be added to `AnnData.uns['meta']`.
 
-## Schema Mapping
+### Schema Mapping
 
 The data loader ensures that the data adheres to the [CELLxGENE schema 3.0.0](https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/3.0.0/schema.md) specifications.
 For datasets that do not adhere to that schema, the schema mapping file allows to provide a mapping of custom `AnnData.obs` columns to the ones defined in CELLxGENE.
@@ -166,7 +168,7 @@ cell_type                cell_type
 ```
 
 
-## DCP metadata (optional)
+### DCP metadata (optional)
 
 This file is optional and used for datasets for which users want to map additional HCA DCP metadata annotations.
 The mapping should contain a `study` and a `filename` column, where `filename` is a TSV file that follows the [DCP metadata schema](https://data.humancellatlas.org/metadata).
@@ -174,7 +176,7 @@ The mapping does not have to include all the studies that you want to include in
 
 TODO: extend to other metadata input.
 
-## Configuration file
+### Configuration file
 
 The `config.yaml` file is the main configuration file of the pipeline and is included in the top-level workflow by default.
 For data loading, you just need to define the location of the files defined above.
@@ -195,12 +197,12 @@ filter_per_study:
 
 For more information on Snakemake configuration files, please refer to the [documentation](https://snakemake.readthedocs.io/en/stable/snakefiles/configuration.html).
 
-# Testing
+## Testing
 
 The test configuration and command are under `test/`.
 All paths in the following are relative to the module root directory.
 
-## Prepare test data
+### Prepare test data
 Before running the test pipeline for the first time, you must download a test dataset.
 The following script downloads the "SchulteSchrepping" dataset and then copies it to the location that is defined in `dataset.tsv`.
 
@@ -210,7 +212,7 @@ bash test/download_test_data.sh -c1
 
 This needs to be done only once.
 
-## Run pipeline on test configuration
+### Run pipeline on test configuration
 
 Activate the snakemake environment and call `test/run_test_*.sh` with run specific Snakemake parameters.
 

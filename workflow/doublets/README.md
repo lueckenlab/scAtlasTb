@@ -10,7 +10,7 @@ The following environments are useful for running the module. Install only the o
 - [`qc`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/qc.yaml): running `scrublet` and `doubletdetection`
 - [`rapids_singlecell`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/rapids_singlecell.yaml) (optional): GPU-accelerated `scrublet` when `use_gpu: true` is set for the dataset
 
-# Configuration
+## Configuration
 
 ```yaml
 DATASETS:
