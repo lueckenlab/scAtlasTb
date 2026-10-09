@@ -2,16 +2,29 @@
 
 ```mermaid
 flowchart TD
-  r_compute_umap["compute_umap"]
-  r_neighbors["neighbors"]
-  r_scarches["scarches"]
-  r_plot_umap["plot_umap"]
-  r_compute_umap --> r_plot_umap
-  r_neighbors --> r_compute_umap
-  r_scarches --> r_neighbors
+  q(["Query AnnData<br/>counts"])
+  ref(["Reference model<br/>scvi-tools, e.g. scVI / scANVI"])
+  genes["Match query genes to reference<br/>missing genes zero-padded"]
+  align["Align query covariates<br/>with reference registry"]
+  train["Fine-tune model on query<br/>scArches: load_query_data + train"]
+  inf["Load reference model<br/>inference only"]
+  lat(["Query latent embedding X_emb<br/>+ updated model"])
+  knn["kNN graph"]
+  umap["UMAP"]
+  plots(["UMAP plots"])
+  q --> genes
+  ref --> genes
+  genes --> align
+  align -->|default| train
+  align -.->|"train_params: false"| inf
+  train --> lat
+  inf --> lat
+  lat --> knn
+  knn --> umap
+  umap --> plots
 ```
 
-*Rule graph of the `reference_mapping` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/reference_mapping/README.md
 :heading-offset: 1

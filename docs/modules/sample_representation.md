@@ -2,20 +2,24 @@
 
 ```mermaid
 flowchart TD
-  r_prepare["prepare"]
-  r_run_method["run_method"]
-  r_plot_distances["plot_distances"]
-  r_plot_umap["plot_umap"]
-  r_compute_umap["compute_umap"]
-  r_plot_emb["plot_emb"]
-  r_compute_umap --> r_plot_umap
-  r_prepare --> r_run_method
-  r_run_method --> r_compute_umap
-  r_run_method --> r_plot_distances
-  r_run_method --> r_plot_emb
+  in(["Input AnnData<br/>cells with sample + cell type labels"])
+  pb["Define samples + aggregate pseudobulks<br/>normalize_total + log1p"]
+  meth["Compute sample representation per method<br/>e.g. pseudobulk PCA, composition, PILOT,<br/>scPoli, MrVI, GloScope, scITD"]
+  rep(["Sample embedding and/or<br/>sample x sample distances"])
+  knn["Sample kNN graph"]
+  umap["UMAP of samples"]
+  plots(["Plots<br/>distance histogram, UMAP + PCA of samples"])
+  in --> pb
+  pb -->|"pseudobulks, kept samples"| meth
+  in -->|"counts, cell embedding<br/>or cell type labels"| meth
+  meth --> rep
+  rep --> knn
+  knn --> umap
+  umap --> plots
+  rep --> plots
 ```
 
-*Rule graph of the `sample_representation` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/sample_representation/README.md
 :heading-offset: 1

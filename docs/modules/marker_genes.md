@@ -2,15 +2,21 @@
 
 ```mermaid
 flowchart TD
-  r_plot["plot"]
-  r_rank_genes_groups["rank_genes_groups"]
-  r_plot_user["plot_user"]
-  r_collect["collect"]
-  r_rank_genes_groups --> r_collect
-  r_rank_genes_groups --> r_plot
+  in(["Input AnnData<br/>expression layer + group columns"])
+  pb["Aggregate pseudobulks<br/>sum per group x sample"]
+  rank["Rank genes per group vs. rest<br/>scanpy.tl.rank_genes_groups"]
+  res(["Marker gene results<br/>.uns + marker tables"])
+  plots(["Plots of top marker genes<br/>rank, dot and matrix plots"])
+  user["Dot plots of user-defined<br/>marker gene sets"]
+  in -->|per group column| rank
+  in -.->|"optional: sample key"| pb
+  pb --> rank
+  rank --> res
+  rank --> plots
+  in -.->|"optional: marker_genes"| user
 ```
 
-*Rule graph of the `marker_genes` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/marker_genes/README.md
 :heading-offset: 1

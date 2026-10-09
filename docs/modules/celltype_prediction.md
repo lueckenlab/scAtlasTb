@@ -2,16 +2,28 @@
 
 ```mermaid
 flowchart TD
-  r_collect["collect"]
-  r_celltypist["celltypist"]
-  r_celltypist_get_model["celltypist_get_model"]
-  r_predict_sex["predict_sex"]
-  r_celltypist --> r_collect
-  r_celltypist_get_model --> r_celltypist
-  r_predict_sex --> r_collect
+  in(["Input AnnData<br/>counts + gene symbols"])
+  models(["Pretrained CellTypist models"])
+  norm["Normalize counts<br/>normalize_total + log1p"]
+  pred["Predict cell type per cell<br/>celltypist.annotate"]
+  mv["Majority voting per over-cluster<br/>refines per-cell predictions"]
+  sexx["Sex per donor from X/Y gene expression"]
+  sexy["Sex per donor from chrY non-PAR / PAR ratio"]
+  out(["Predicted labels + confidence scores,<br/>sex labels in .obs"])
+  in -->|"unless already normalized"| norm
+  in -.->|"already normalized"| pred
+  norm --> pred
+  models -->|per model| pred
+  pred --> out
+  pred -.->|optional| mv
+  mv --> out
+  in -.->|"optional: predict_sex"| sexx
+  in -.->|"optional: predict_sex"| sexy
+  sexx --> out
+  sexy --> out
 ```
 
-*Rule graph of the `celltype_prediction` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/celltype_prediction/README.md
 :heading-offset: 1

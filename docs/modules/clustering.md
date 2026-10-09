@@ -2,21 +2,26 @@
 
 ```mermaid
 flowchart TD
-  r_merge["merge"]
-  r_compute_umap["compute_umap"]
-  r_compute_neighbors["compute_neighbors"]
-  r_cluster["cluster"]
-  r_plot_umap["plot_umap"]
-  r_cluster --> r_merge
-  r_compute_neighbors --> r_cluster
-  r_compute_neighbors --> r_compute_umap
-  r_compute_umap --> r_merge
-  r_merge --> r_plot_umap
-  %% self-loop present in the rulegraph (hierarchy level n-1 -> level n), re-added after conversion
-  r_cluster --> r_cluster
+  in(["Input AnnData<br/>embedding + kNN graph"])
+  knn["Recompute kNN graph<br/>scanpy.pp.neighbors"]
+  l1["Level 1: cluster all cells<br/>Leiden / Louvain per resolution"]
+  sub["Level n > 1: sub-cluster each cluster<br/>recompute kNN on subset + cluster again"]
+  labels(["Cluster labels in .obs<br/>algorithm_resolution_level"])
+  umap["Recompute UMAP"]
+  plots(["Plots<br/>UMAPs coloured by clusters + covariates"])
+  in --> l1
+  in -.->|optional| knn
+  knn --> l1
+  l1 -.->|"hierarchy"| sub
+  sub -->|next level| sub
+  l1 --> labels
+  sub --> labels
+  in -.->|optional| umap
+  labels --> plots
+  umap --> plots
 ```
 
-*Rule graph of the `clustering` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ```{include} ../../workflow/clustering/README.md
 :heading-offset: 1

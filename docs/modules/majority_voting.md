@@ -1,5 +1,26 @@
 # Majority Voting
 
+```mermaid
+flowchart TD
+  in(["Input AnnData .obs"])
+  sel["Select label columns<br/>regex match, at least 2 columns"]
+  cats["Unify label categories across columns"]
+  vote["Per cell: most frequent label across columns<br/>missing labels count as votes"]
+  agr["Agreement = votes for winning label / number of columns<br/>all votes different: consensus NaN, agreement 0"]
+  thr["Flag low agreement<br/>agreement <= threshold"]
+  out(["Consensus label, agreement + low-agreement flag in .obs"])
+  stats(["Summary table + plot<br/>fraction of low-agreement cells per label"])
+  in --> sel
+  sel --> cats
+  cats --> vote
+  vote --> agr
+  agr --> thr
+  thr --> out
+  out --> stats
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/majority_voting/README.md
 :heading-offset: 1
 ```

@@ -1,5 +1,20 @@
 # Label Transfer
 
+```mermaid
+flowchart TD
+  in(["Input AnnData .obs<br/>reference labels + query groups"])
+  ct["Cross-tabulate reference labels x query groups<br/>pandas.crosstab"]
+  maj["Most frequent reference label per query group<br/>cells without reference label not counted"]
+  assign["Assign majority label to all cells of the group"]
+  out(["majority_reference column in .obs"])
+  in --> ct
+  ct --> maj
+  maj --> assign
+  assign --> out
+```
+
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
+
 ```{include} ../../workflow/label_transfer/README.md
 :heading-offset: 1
 ```
