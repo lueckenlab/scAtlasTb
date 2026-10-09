@@ -31,9 +31,11 @@ cd scAtlasTb
 for env in snakemake scanpy bbknn scanorama scib plots funkyheatmap; do
     bash envs/install_environment.sh -f envs/$env.yaml
 done
+conda run -n funkyheatmap Rscript -e "install.packages('funkyheatmap', repos='https://cloud.r-project.org')"
 ```
 
-This installs the environments needed for the demo. <!-- TODO(user): fill in measured install time --> Typical install time: ~N minutes.
+This installs the environments needed for the demo. Typical install time: ~10 minutes (~8 GB disk space).
+On Apple Silicon, install the `funkyheatmap` environment with `CONDA_SUBDIR=osx-64` (see [troubleshooting](https://scatlastb.readthedocs.io/en/latest/principles/troubleshooting.html#working-on-apple-silicon)).
 See the [installation guide](https://scatlastb.readthedocs.io/en/latest/getting_started/installation.html) for installing all environments.
 
 ### Demo
@@ -46,7 +48,7 @@ conda activate snakemake
 bash run_example.sh preprocessing_all integration_all metrics_all -c 4
 ```
 
-<!-- TODO(user): fill in measured run time --> Expected run time: ~N minutes on a standard desktop computer.
+Expected run time: ~15 minutes with 4 CPU cores (measured on a laptop with Apple M1 Pro and 16 GB RAM).
 The [quickstart](https://scatlastb.readthedocs.io/en/latest/getting_started/quickstart.html) describes the expected output.
 
 ### Usage on your own data

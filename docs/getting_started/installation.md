@@ -16,7 +16,7 @@
 **Hardware**
 
 * The [demo](quickstart.md) runs on a standard desktop or laptop computer (CPU only, 8 GB RAM is sufficient).
-* Disk space: <!-- TODO(user): fill in disk space required for the demo environments --> ~N GB for the conda environments of the demo.
+* Disk space: ~8 GB for the conda environments of the demo (~5.5 GB environments, ~2.5 GB conda package cache).
 * **Optional, non-standard hardware:** an NVIDIA GPU with CUDA 12 support.
   A GPU is only needed for deep-learning-based methods (e.g. scVI, scANVI, scPoli, DRVI, sysVI via the `scvi-tools` and `scarches` environments) and for GPU-accelerated preprocessing and clustering (`rapids_singlecell` environment, used when `use_gpu: true`).
   All other modules run on CPU (see [Working with CPUs only](../principles/troubleshooting.md#working-with-cpus-only)).
@@ -67,9 +67,24 @@ done
 
 `envs/install_environment.sh` creates an environment if it does not exist yet and updates it otherwise.
 
-**Typical install time:** <!-- TODO(user): fill in measured install time --> ~N minutes for the demo environments on a standard desktop computer with a broadband internet connection.
+The [funkyheatmap](https://funkyheatmap.github.io/funkyheatmap/) R package used for the summary plots of the `metrics` module is not available on conda.
+Install it from CRAN into the `funkyheatmap` environment:
 
-> 💡 **Tip** On Apple Silicon, the `funkyheatmap` environment may need to be installed under emulation, see [Troubleshooting](../principles/troubleshooting.md#working-on-apple-silicon).
+```
+conda run -n funkyheatmap Rscript -e "install.packages('funkyheatmap', repos='https://cloud.r-project.org')"
+```
+
+Otherwise, the pipeline installs it on first use, which can fail when two plotting jobs try to install it at the same time (rerunning the pipeline resolves this).
+
+**Typical install time:** ~10 minutes for the demo environments (measured on a laptop with Apple M1 Pro and an empty conda package cache, 0.5–1.5 minutes per environment).
+
+> 💡 **Tip** On Apple Silicon, the `funkyheatmap` environment must be installed under emulation, because not all of its R dependencies are available for `osx-arm64`:
+>
+> ```
+> CONDA_SUBDIR=osx-64 conda env create -f envs/funkyheatmap.yaml
+> ```
+>
+> See [Troubleshooting](../principles/troubleshooting.md#working-on-apple-silicon).
 
 ### All environments
 

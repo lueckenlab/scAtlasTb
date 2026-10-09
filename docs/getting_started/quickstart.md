@@ -105,7 +105,7 @@ If the dry run was successful, you can let Snakemake compute the different steps
 bash run_example.sh preprocessing_all integration_all metrics_all -c 4
 ```
 
-**Expected run time:** <!-- TODO(user): fill in measured run time --> ~N minutes on a standard desktop computer with 4 CPU cores (excluding the installation of the conda environments).
+**Expected run time:** ~15 minutes with 4 CPU cores (measured on a laptop with Apple M1 Pro and 16 GB RAM; 341 jobs), excluding the installation of the conda environments.
 
 ## 3. Expected output
 
@@ -132,10 +132,10 @@ data/out/
 
 images/
 ├── preprocessing/dataset~my_task/file_id~file_1/
-│   ├── pca/                                           # PCA plots
-│   └── umap/                                          # UMAP plots
+│   ├── pca/None.png                                   # PCA plot
+│   └── umap/None.png                                  # UMAP plot
 ├── integration/
-│   ├── umap/dataset~my_task/.../method~<method>.../output_type~<type>/   # UMAP per integration output
+│   ├── umap/dataset~my_task/.../method~<method>.../output_type~<type>/batch.png   # UMAP per integration output
 │   └── benchmark/dataset~my_task/metric~{s,max_uss,mean_load}.png        # run time, memory and CPU load per method
 └── metrics/
     ├── all/                                           # summaries across all tasks
@@ -151,7 +151,7 @@ The main results of the demo are:
 
 * **Integration UMAPs** (`images/integration/umap/...`): for each method and output type, a UMAP coloured by `batch`.
   Compared to `unintegrated`, the integrated outputs should show cells of the 3 batches more evenly mixed.
-* **Benchmark table** (`data/out/metrics/results/dataset~my_task/metrics.tsv`): one row per method, output type and metric, with columns such as `method`, `output_type`, `metric`, `metric_type` (`batch_correction` or `bio_conservation`), `batch`, `label` and `score`.
+* **Benchmark table** (`data/out/metrics/results/dataset~my_task/metrics.tsv`): one row per method, output type and metric, with columns such as `integration_method`, `output_type`, `metric`, `metric_type` (`batch_correction` or `bio_conservation`), `batch`, `label` and `score`.
 * **Funky heatmap** (`images/metrics/dataset~my_task/funky_heatmap.pdf`): ranking of the integration methods by aggregated batch correction and bio-conservation scores.
 
 > You have now successfully called the example pipeline! 🎉
