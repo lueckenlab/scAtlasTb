@@ -9,6 +9,16 @@ It covers three modules:
 
 The demo runs entirely on CPU and does not download any data.
 
+```mermaid
+flowchart TD
+  data(["Demo dataset<br/>700 PBMCs, 3 batches"])
+  pre["Preprocessing<br/>normalize, HVGs, PCA, kNN, UMAP"]
+  int["Integration<br/>5 batch correction methods<br/>+ unintegrated baseline"]
+  met["Metrics<br/>15 batch correction and<br/>bio-conservation metrics"]
+  res(["Benchmark results<br/>scores, rankings, UMAPs"])
+  data --> pre --> int --> met --> res
+```
+
 ```{figure} ../_static/quickstart_rulegraph.svg
 :alt: Snakemake rule graph of the demo
 :width: 100%
