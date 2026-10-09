@@ -1,5 +1,36 @@
 # Batch Analysis
 
+```mermaid
+flowchart TD
+  r_prepare["prepare"]
+  r_pca["pca"]
+  r_highly_variable_genes["highly_variable_genes"]
+  r_filter_genes["filter_genes"]
+  r_normalize["normalize"]
+  r_pb_pca_plot["pb_pca_plot"]
+  r_pb_pca["pb_pca"]
+  r_theils_u["theils_u"]
+  r_determine_covariates["determine_covariates"]
+  r_batch_pcr_plot["batch_pcr_plot"]
+  r_batch_pcr_collect["batch_pcr_collect"]
+  r_batch_pcr_collect --> r_batch_pcr_plot
+  r_determine_covariates --> r_batch_pcr_collect
+  r_filter_genes --> r_highly_variable_genes
+  r_highly_variable_genes --> r_pca
+  r_normalize --> r_filter_genes
+  r_pb_pca --> r_pb_pca_plot
+  r_pca --> r_prepare
+  r_prepare --> r_determine_covariates
+  r_prepare --> r_pb_pca
+  %% added from code (after checkpoint)
+  r_batch_pcr["batch_pcr"]
+  r_prepare --> r_batch_pcr
+  r_determine_covariates --> r_batch_pcr
+  r_batch_pcr --> r_batch_pcr_collect
+```
+
+*Rule graph of the `batch_analysis` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/batch_analysis/README.md
 :heading-offset: 1
 ```

@@ -1,5 +1,21 @@
 # Doublet Detection
 
+```mermaid
+flowchart TD
+  r_split_batches["split_batches"]
+  r_collect["collect"]
+  r_split_batches --> r_collect
+  %% added from code (after checkpoint)
+  r_scrublet["scrublet"]
+  r_doubletdetection["doubletdetection"]
+  r_split_batches --> r_scrublet
+  r_split_batches --> r_doubletdetection
+  r_scrublet --> r_collect
+  r_doubletdetection --> r_collect
+```
+
+*Rule graph of the `doublets` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/doublets/README.md
 :heading-offset: 1
 ```

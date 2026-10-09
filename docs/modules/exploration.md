@@ -1,5 +1,17 @@
 # Exploration
 
+```mermaid
+flowchart TD
+  %% summary_stats_all kept: unlike other *_all rules it is a real aggregation rule with outputs
+  r_summary_stats_all["summary_stats_all"]
+  r_summary_stats["summary_stats"]
+  r_marker_genes["marker_genes"]
+  r_barcode_matching["barcode_matching"]
+  r_summary_stats --> r_summary_stats_all
+```
+
+*Rule graph of the `exploration` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/exploration/README.md
 :heading-offset: 1
 ```

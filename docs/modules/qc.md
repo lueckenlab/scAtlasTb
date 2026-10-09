@@ -1,5 +1,23 @@
 # Quality Control
 
+```mermaid
+flowchart TD
+  r_autoqc["autoqc"]
+  r_get_thresholds["get_thresholds"]
+  r_merge_thresholds["merge_thresholds"]
+  r_plot_joint["plot_joint"]
+  r_plot_removed["plot_removed"]
+  r_plot_summary["plot_summary"]
+  r_autoqc --> r_get_thresholds
+  r_autoqc --> r_plot_summary
+  r_get_thresholds --> r_merge_thresholds
+  r_get_thresholds --> r_plot_joint
+  r_get_thresholds --> r_plot_removed
+  r_merge_thresholds --> r_plot_summary
+```
+
+*Rule graph of the `qc` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/qc/README.md
 :heading-offset: 1
 ```
