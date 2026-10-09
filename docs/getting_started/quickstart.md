@@ -10,87 +10,29 @@ It covers three modules:
 The demo runs entirely on CPU and does not download any data.
 
 ```mermaid
-flowchart TD
+flowchart LR
+  input[("data/pbmc68k.h5ad")] --> preprocessing
   subgraph preprocessing
-    preprocessing__assemble["assemble"]
-    preprocessing__normalize["normalize"]
-    preprocessing__highly_variable_genes["highly_variable_genes"]
-    preprocessing__filter_genes["filter_genes"]
-    preprocessing__pca["pca"]
-    preprocessing__plot_pca["plot_pca"]
-    preprocessing__plot_umap["plot_umap"]
-    preprocessing__umap["umap"]
-    preprocessing__neighbors["neighbors"]
+    direction TB
+    p1["normalize"] --> p2["filter_genes"] --> p3["highly_variable_genes"] --> p4["pca"] --> p5["neighbors"] --> p6["umap"]
+    p4 --> p7["plot_pca"]
+    p6 --> p9["plot_umap"]
+    p4 --> p8["assemble"]
   end
-  subgraph metrics
-    metrics__prepare["prepare"]
-    metrics__pca["pca"]
-    metrics__score_genes["score_genes"]
-    metrics__cluster_collect["cluster_collect"]
-    metrics__cluster["cluster"]
-    metrics__run["run"]
-    metrics__collect["collect"]
-    metrics__merge_per_file["merge_per_file"]
-    metrics__merge_per_dataset["merge_per_dataset"]
-    metrics__merge_per_batch["merge_per_batch"]
-    metrics__merge_per_label["merge_per_label"]
-    metrics__funkyheatmap["funkyheatmap"]
-    metrics__merge["merge"]
-    metrics__funkyheatmap_per_dataset["funkyheatmap_per_dataset"]
-    metrics__barplot["barplot"]
-    metrics__barplot_per_dataset["barplot_per_dataset"]
-  end
+  preprocessing --> integration
   subgraph integration
-    integration__compute_umap["compute_umap"]
-    integration__postprocess["postprocess"]
-    integration__run_method["run_method"]
-    integration__prepare["prepare"]
-    integration__barplot_per_dataset["barplot_per_dataset"]
-    integration__benchmark_per_dataset["benchmark_per_dataset"]
-    integration__plot_umap["plot_umap"]
+    direction TB
+    i1["prepare"] --> i2["run_method<br/>(6 methods)"] --> i3["postprocess"] --> i4["compute_umap"] --> i5["plot_umap"]
+    i2 --> i6["benchmark / barplot"]
   end
-  integration__benchmark_per_dataset --> integration__barplot_per_dataset
-  integration__compute_umap --> integration__plot_umap
-  integration__compute_umap --> metrics__collect
-  integration__compute_umap --> metrics__pca
-  integration__compute_umap --> metrics__prepare
-  integration__postprocess --> integration__compute_umap
-  integration__prepare --> integration__run_method
-  integration__run_method --> integration__benchmark_per_dataset
-  integration__run_method --> integration__postprocess
-  metrics__cluster --> metrics__cluster_collect
-  metrics__cluster_collect --> metrics__run
-  metrics__merge --> metrics__barplot
-  metrics__merge --> metrics__funkyheatmap
-  metrics__merge_per_dataset --> metrics__barplot_per_dataset
-  metrics__merge_per_dataset --> metrics__funkyheatmap_per_dataset
-  metrics__merge_per_file --> metrics__collect
-  metrics__pca --> metrics__run
-  metrics__prepare --> metrics__cluster
-  metrics__prepare --> metrics__cluster_collect
-  metrics__prepare --> metrics__run
-  metrics__prepare --> metrics__score_genes
-  metrics__run --> metrics__merge
-  metrics__run --> metrics__merge_per_batch
-  metrics__run --> metrics__merge_per_dataset
-  metrics__run --> metrics__merge_per_file
-  metrics__run --> metrics__merge_per_label
-  metrics__score_genes --> metrics__run
-  preprocessing__assemble --> integration__prepare
-  preprocessing__filter_genes --> preprocessing__highly_variable_genes
-  preprocessing__highly_variable_genes --> preprocessing__assemble
-  preprocessing__highly_variable_genes --> preprocessing__pca
-  preprocessing__neighbors --> preprocessing__umap
-  preprocessing__normalize --> preprocessing__assemble
-  preprocessing__normalize --> preprocessing__filter_genes
-  preprocessing__pca --> preprocessing__assemble
-  preprocessing__pca --> preprocessing__neighbors
-  preprocessing__pca --> preprocessing__plot_pca
-  preprocessing__pca --> preprocessing__umap
-  preprocessing__umap --> preprocessing__plot_umap
+  integration --> metrics
+  subgraph metrics
+    direction TB
+    m1["prepare"] --> m2["pca / cluster / score_genes"] --> m3["run<br/>(15 metrics)"] --> m4["merge"] --> m5["funkyheatmap / barplot"]
+  end
 ```
 
-*Rule graph of the demo, generated with `snakemake --rulegraph`. Each box is a Snakemake rule; rules are grouped by module. Jobs are created per input file, integration method and metric, so the 32 rules above expand to 341 jobs.*
+*Simplified rule graph of the demo, condensed from `snakemake --rulegraph` (32 rules). Jobs are created per input file, integration method, output type and metric, so the demo runs 341 jobs. The complete rule graph of each module is shown on its {doc}`module page <../modules/index_integration>`.*
 
 ## Prerequisites
 
