@@ -54,18 +54,17 @@ The modules are located under `workflow/` and can be run independently or combin
 ## 👀 TL;DR What does a full workflow look like?
 
 The heart of the configuration is captured in a YAML (or JSON) configuration file.
-Here is an example of a workflow configuration in `configs/example_config.yaml` containing the `preprocessing`, `integration` and `metrics` modules:
+Here is a simplified version of the demo configuration in `configs/quickstart.yaml` containing the `preprocessing`, `integration` and `metrics` modules:
 
 ```yaml
 output_dir: data/out
 images: images
 
-os: intel
-use_gpu: true
+use_gpu: false
 
 DATASETS:
 
-  my_dataset: # custom task/workflow name
+  my_task: # custom task/workflow name
 
     # input specification: map of module name to map of input file name to input file path
     input:
@@ -74,7 +73,7 @@ DATASETS:
         # file_2: ... # more files if required
       integration: preprocessing # all outputs of module will automatically be used as input
       metrics: integration
-    
+
     # module configuration
     preprocessing:
       highly_variable_genes:
@@ -85,23 +84,21 @@ DATASETS:
         - normalize
         - highly_variable_genes
         - pca
-    
+
     # module configuration
     integration:
-      raw_counts: raw/X
-      norm_counts: X
+      raw_counts: layers/counts
+      norm_counts: layers/normcounts
       batch: batch
       methods:
         unintegrated:
+        harmonypy:
         scanorama:
           batch_size: 100
-        scvi:
-          max_epochs: 10
-          early_stopping: true
 
     # module configuration
     metrics:
-      unintegrated: layers/norm_counts
+      unintegrated: layers/normcounts
       batch: batch
       label: bulk_labels
       metrics:
@@ -109,10 +106,10 @@ DATASETS:
         - graph_connectivity
 ```
 
-Which allows you to call the pipeline as follows:
+Which allows you to call the pipeline as follows (after saving the config to `my_config.yaml`):
 
 ```
-snakemake --configfile configs/example_config.yaml --snakefile workflow/Snakefile --use-conda -nq
+snakemake --configfile my_config.yaml --snakefile workflow/Snakefile --use-conda preprocessing_all integration_all metrics_all -nq
 ```
 
 giving you the following dryrun output:
@@ -129,20 +126,32 @@ integration_plot_umap                      6
 integration_postprocess                    6
 integration_prepare                        1
 integration_run_method                     3
+metrics_all                                1
+metrics_barplot                            3
+metrics_barplot_per_dataset                3
+metrics_cluster                           60
+metrics_cluster_collect                    6
+metrics_collect                            6
+metrics_funkyheatmap                       1
+metrics_funkyheatmap_per_dataset           1
+metrics_merge                              1
+metrics_merge_per_batch                    1
+metrics_merge_per_dataset                  1
+metrics_merge_per_file                     6
+metrics_merge_per_label                    1
+metrics_prepare                            6
+metrics_run                               12
+preprocessing_all                          1
 preprocessing_assemble                     1
+preprocessing_filter_genes                 1
 preprocessing_highly_variable_genes        1
+preprocessing_neighbors                    1
 preprocessing_normalize                    1
 preprocessing_pca                          1
-total                                     31
-
-Reasons:
-    (check individual jobs above for details)
-    input files updated by another job:
-        integration_all, integration_barplot_per_dataset, integration_benchmark_per_dataset, integration_compute_umap, integration_plot_umap, integration_postprocess, integration_prepare, integra[...]
-    missing output files:
-        integration_benchmark_per_dataset, integration_compute_umap, integration_postprocess, integration_prepare, integration_run_method, preprocessing_assemble, preprocessing_highly_variable_ge[...]
-
-This was a dry-run (flag -n). The order of jobs does not reflect the order of execution.
+preprocessing_plot_pca                     1
+preprocessing_plot_umap                    1
+preprocessing_umap                         1
+total                                    146
 ```
 
 💖 Beautiful, right? Chek out the [documentation][] to learn how to set up your own workflow!
