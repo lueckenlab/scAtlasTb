@@ -1,5 +1,51 @@
 # Metrics
 
+```mermaid
+flowchart TD
+  r_prepare["prepare"]
+  input_integration(["integration module"])
+  r_pca["pca"]
+  r_score_genes["score_genes"]
+  r_cluster_collect["cluster_collect"]
+  r_cluster["cluster"]
+  r_run["run"]
+  r_collect["collect"]
+  r_merge_per_file["merge_per_file"]
+  r_merge_per_dataset["merge_per_dataset"]
+  r_merge_per_batch["merge_per_batch"]
+  r_merge_per_label["merge_per_label"]
+  r_funkyheatmap["funkyheatmap"]
+  r_merge["merge"]
+  r_funkyheatmap_per_dataset["funkyheatmap_per_dataset"]
+  r_barplot["barplot"]
+  r_barplot_per_dataset["barplot_per_dataset"]
+  input_integration --> r_collect
+  input_integration --> r_pca
+  input_integration --> r_prepare
+  r_cluster --> r_cluster_collect
+  r_cluster_collect --> r_run
+  r_merge --> r_barplot
+  r_merge --> r_funkyheatmap
+  r_merge_per_dataset --> r_barplot_per_dataset
+  r_merge_per_dataset --> r_funkyheatmap_per_dataset
+  r_merge_per_file --> r_collect
+  r_pca --> r_run
+  r_prepare --> r_cluster
+  r_prepare --> r_cluster_collect
+  r_prepare --> r_run
+  r_prepare --> r_score_genes
+  r_run --> r_merge
+  r_run --> r_merge_per_batch
+  r_run --> r_merge_per_dataset
+  r_run --> r_merge_per_file
+  r_run --> r_merge_per_label
+  r_score_genes --> r_run
+  classDef external fill:#eee,stroke:#999,stroke-dasharray: 4 3,color:#555
+  class input_integration external
+```
+
+*Rule graph of the `metrics` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/metrics/README.md
 :heading-offset: 1
 ```

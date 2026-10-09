@@ -1,5 +1,24 @@
 # Integration
 
+```mermaid
+flowchart TD
+  r_run_method["run_method"]
+  r_prepare["prepare"]
+  r_postprocess["postprocess"]
+  r_barplot_per_dataset["barplot_per_dataset"]
+  r_benchmark_per_dataset["benchmark_per_dataset"]
+  r_plot_umap["plot_umap"]
+  r_compute_umap["compute_umap"]
+  r_benchmark_per_dataset --> r_barplot_per_dataset
+  r_compute_umap --> r_plot_umap
+  r_postprocess --> r_compute_umap
+  r_prepare --> r_run_method
+  r_run_method --> r_benchmark_per_dataset
+  r_run_method --> r_postprocess
+```
+
+*Rule graph of the `integration` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/integration/README.md
 :heading-offset: 1
 ```

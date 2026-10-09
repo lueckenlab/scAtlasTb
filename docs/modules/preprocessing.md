@@ -1,5 +1,36 @@
 # Preprocessing
 
+```mermaid
+flowchart TD
+  r_assemble["assemble"]
+  r_normalize["normalize"]
+  r_highly_variable_genes["highly_variable_genes"]
+  r_filter_genes["filter_genes"]
+  r_extra_hvgs["extra_hvgs"]
+  r_pca["pca"]
+  r_neighbors["neighbors"]
+  r_umap["umap"]
+  r_plot_pca["plot_pca"]
+  r_plot_umap["plot_umap"]
+  r_extra_hvgs --> r_assemble
+  r_filter_genes --> r_extra_hvgs
+  r_filter_genes --> r_highly_variable_genes
+  r_highly_variable_genes --> r_assemble
+  r_highly_variable_genes --> r_pca
+  r_neighbors --> r_assemble
+  r_neighbors --> r_umap
+  r_normalize --> r_assemble
+  r_normalize --> r_filter_genes
+  r_pca --> r_assemble
+  r_pca --> r_neighbors
+  r_pca --> r_plot_pca
+  r_pca --> r_umap
+  r_umap --> r_assemble
+  r_umap --> r_plot_umap
+```
+
+*Rule graph of the `preprocessing` module with all steps enabled, generated with `snakemake --rulegraph`. Grey rounded nodes are upstream modules; rule names correspond to the processing steps described below.*
+
 ```{include} ../../workflow/preprocessing/README.md
 :heading-offset: 1
 ```
