@@ -1,5 +1,5 @@
-Integration
-===========
+Integration benchmark
+=====================
 
 .. toctree::
    :maxdepth: 1
