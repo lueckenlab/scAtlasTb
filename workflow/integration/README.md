@@ -126,7 +126,7 @@ The AnnData file in h5ad or zarr requires the following input:
 * `methods`: methods configuration to determine which methods should be used, as well as which hyperparameters those methods should use
   * hyperparamters correspond to the parameters that the integration method supports. For e.g. scvi-tools methods, you can define all parameters for the module setup and training functions at the same level
   * The module also supports parameter exploration. If you pass a list to a hyperparamter, all combinations of that hyperparameter with the other parameters will be computed as a separate hyperparameter computation
-* `var_mask`: boolean column(s) in `.var` (e.g. `highly_variable`) defining the features used for integration. Each value becomes a separate run. The column must exist in the input file.
+* `var_mask`: boolean column(s) in `.var` (e.g. `highly_variable`) defining the features used for integration. Each value becomes a separate run. The column must exist in the input file. If not set, all genes are used.
 * `save_subset`: if `true`, the prepared file stores the count matrices physically subset to the integration features instead of linking the full matrices (default: `false`)
 * `seed`, `threads`: random seed passed to the methods (default: 0) and number of CPU threads (default: 1)
 * `umap_colors`, `plots` (`colors`, `plot_centroids`, `plot_gene_chunk_size`): additional `.obs` columns or genes to colour the UMAP plots by (label and batch columns are always plotted)

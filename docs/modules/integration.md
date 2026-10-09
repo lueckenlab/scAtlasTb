@@ -14,7 +14,7 @@
 
 * Input files are configured under `DATASETS.<dataset>.input.integration` (`file_id` → path, `.h5ad` or `.zarr`).
 * `.X`/`.layers`: the slots named by `norm_counts` (log-normalised expression) and `raw_counts` (raw counts) are both required; the prepare step asserts that neither is `None`. If `raw_counts` points to `raw/X`, `raw/var` is used as feature table.
-* `.var[<var_mask>]`: boolean feature mask, one run per configured value; its existence is asserted.
+* `.var[<var_mask>]`: boolean feature mask, one run per configured value; its existence is asserted. If `var_mask` is not set, all genes are used.
 * `.obs[<batch>]` (mandatory) and `.obs[<label>]` (only for methods with `use_cell_type: true`), plus any covariates named in method hyperparameters (e.g. `covariates` for ComBat, `categorical_covariate_keys` for scVI-family models, `system_key` for SysVI, `key`/`batch_key` for Harmony).
 * `.obsm['X_pca']`, `.obsp`/`.uns['neighbors']` (optional): reused by `unintegrated`; all other methods recompute what they need.
 
@@ -63,7 +63,7 @@ Output types: **full** — a corrected feature matrix in `.X` (kNN graph later c
 Script `scripts/prepare.py`, environment `scanpy`, one job per `dataset × file_id × var_mask`. No normalisation, scaling or HVG selection is performed here; it only harmonises slots:
 
 ```text
-assert var_mask in input .var
+if var_mask is set: assert var_mask in input .var
 norm ← read(norm_counts, backed, dask)
 var['integration_features'] ← var[var_mask] (all True if var_mask is None)
 var['integration_features'] &= genes with ≥ 1 non-zero cell among masked genes   # _filter_genes(min_cells=1)
