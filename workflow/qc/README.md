@@ -8,7 +8,7 @@ QC metrics and thresholds are visualised in different plots and tables.
 ### AnnData file
 AnnData file in h5ad or zarr format with the following:
 
-+ raw count matrix under adata.X
++ raw count matrix under adata.X (or the slot given by `counts`, e.g. `layers/counts`)
 + any categorical or continuous metadata under adata.obs
 
 
@@ -74,9 +74,9 @@ The output of the QC workflow is a set of plots and tables that visualise the qu
 ### Outputs include:
 
 * Joint QC plots under `<images_dir>/dataset~{dataset}/file_id~{file_id}/joint_plots/`
-  * `main.svg`: scatter plots for all configured QC metric pairs without hue stratification
+  * `main.svg`: scatter plots for all configured QC metric pairs without hue stratification (only created if no valid `hue` is configured)
   * `hue={hue}.svg`: scatter plots for all configured QC metric pairs colored by each configured hue and by `qc_status`
-  * `density.svg`: one combined density figure covering all configured QC metric pairs, with regular-scale and log-scale panels side by side
+  * `density.svg`: one combined density figure covering all configured QC metric pairs, with regular-scale and log-scale panels side by side (only created with `plot_params: {plot_density: true}`)
 * QC removal plots under `<images_dir>/dataset~{dataset}/file_id~{file_id}/removed/`
   * `by={hue}.svg`: removed-cell summaries stratified by each configured hue
   * `cells_passed_all.svg`: overall counts of passed, failed, and ambiguous cells
@@ -92,4 +92,4 @@ The output of the QC workflow is a set of plots and tables that visualise the qu
 * An anndata file in zarr format containing the QC metrics and status of each cell
   * The metrics are stored under `adata.obs[['n_counts', 'n_genes', 'percent_mito']]`
   * The QC status is stored under `adata.obs['qc_status']`
-  * The zarr file is under `<out_dir>/dataset~{dataset}/file_id~{file_id}.zarr`
+  * The zarr file is under `<out_dir>/qc/dataset~{dataset}/file_id~{file_id}.zarr`

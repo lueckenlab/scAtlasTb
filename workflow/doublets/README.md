@@ -59,6 +59,6 @@ Results are written into the AnnData `.obs`:
   - doubletdetection:
     - `doubletdetection_score`
     - `doubletdetection_prediction`
-* `<out_dir>/doublets/scatter/dataset~<dataset>/file_id~<file_id>/<method>/<batch>.tsv` — Intermediate per-batch scores and predictions of each caller.
+* `<out_dir>/doublets/scatter/dataset~<dataset>/file_id~<file_id>/<method>/<group>.tsv` — Intermediate scores and predictions of each caller per group of batches (`group_<i>`, or `no_batch` if no batch key is given; batches are grouped according to `chunk_size`).
 
 Batches with fewer than 100 cells are skipped and receive a score and prediction of `0`.
