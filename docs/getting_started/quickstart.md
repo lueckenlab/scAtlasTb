@@ -9,30 +9,20 @@ It covers three modules:
 
 The demo runs entirely on CPU and does not download any data.
 
-```mermaid
-flowchart LR
-  input[("data/pbmc68k.h5ad")] --> preprocessing
-  subgraph preprocessing
-    direction TB
-    p1["normalize"] --> p2["filter_genes"] --> p3["highly_variable_genes"] --> p4["pca"] --> p5["neighbors"] --> p6["umap"]
-    p4 --> p7["plot_pca"]
-    p6 --> p9["plot_umap"]
-    p4 --> p8["assemble"]
-  end
-  preprocessing --> integration
-  subgraph integration
-    direction TB
-    i1["prepare"] --> i2["run_method<br/>(6 methods)"] --> i3["postprocess"] --> i4["compute_umap"] --> i5["plot_umap"]
-    i2 --> i6["benchmark / barplot"]
-  end
-  integration --> metrics
-  subgraph metrics
-    direction TB
-    m1["prepare"] --> m2["pca / cluster / score_genes"] --> m3["run<br/>(15 metrics)"] --> m4["merge"] --> m5["funkyheatmap / barplot"]
-  end
+```{figure} ../_static/quickstart_rulegraph.svg
+:alt: Snakemake rule graph of the demo
+:width: 100%
+
+Rule graph of the demo, created with `snakemake --rulegraph` (see [Expected output](#3-expected-output) for the files it produces).
+Each node is a Snakemake rule (prefixed by its module), each arrow means that the output of one rule is input to the other.
+Jobs are created per input file, integration method, output type and metric, so the demo runs 341 jobs.
 ```
 
-*Simplified rule graph of the demo, condensed from `snakemake --rulegraph` (32 rules). Jobs are created per input file, integration method, output type and metric, so the demo runs 341 jobs. The complete rule graph of each module is shown on its {doc}`module page <../modules/index_integration>`.*
+You can create the rule graph for any workflow configuration with:
+
+```
+bash run_example.sh preprocessing_all integration_all metrics_all --rulegraph | dot -Tsvg > rulegraph.svg
+```
 
 ## Prerequisites
 
