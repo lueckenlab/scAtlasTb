@@ -11,7 +11,8 @@ This module enables projection of new single-cell RNA-seq datasets onto pre-trai
 
 The following environments are needed for reference mapping:
 
-- [`scarches`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/scarches.yaml)
+- [`scvi-tools`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/scvi-tools.yaml): mapping with scArches (`scarches` rule)
+- [`scanpy`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/scanpy.yaml) or [`rapids_singlecell`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/rapids_singlecell.yaml): neighbors, UMAP and plots (reused from the preprocessing module)
 
 ## Supported Models
 
