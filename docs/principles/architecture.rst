@@ -94,7 +94,7 @@ Data format and linking
 
 Intermediate and output data are stored as AnnData objects in `zarr <https://zarr.readthedocs.io>`_ format.
 Inputs can be ``.h5ad`` or ``.zarr``.
-To avoid copying large matrices, scripts only write the slots they changed and symlink all unchanged slots (e.g. ``X``, ``layers``) to the input zarr store (``utils/io.py::write_zarr_linked``).
+For ``.zarr`` inputs, scripts only write the slots they changed and symlink unchanged slots (e.g. ``X``, ``layers``) to the input store (``utils/io.py::write_zarr_linked``). For ``.h5ad`` inputs, linking is not possible, so the loaded data are written to a new zarr store.
 Scripts read only the slots they need (``utils/io.py::read_anndata``), optionally as `dask <https://www.dask.org>`_ arrays for out-of-core processing of large datasets.
 
 Software environments
