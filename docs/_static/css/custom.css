@@ -1,0 +1,16 @@
+/* Let long inline code (file paths, AnnData slots, column lists) wrap, in tables and in
+   running text, instead of overflowing the page or making a single table column very wide.
+   Sphinx wraps inline code in <span class="pre">, which sets white-space: pre.
+   Line-break opportunities after / _ , . ( = : ~ - are added by js/table-wrap.js;
+   break-word only splits a segment mid-word if it does not fit otherwise. */
+article code.literal,
+article code.literal span.pre {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+/* Slightly smaller font in tables, so that wide reference tables (e.g. the
+   metrics and method tables) fit next to the page table of contents. */
+article table {
+    font-size: 0.9em;
+}

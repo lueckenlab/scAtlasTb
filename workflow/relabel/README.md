@@ -100,13 +100,13 @@ In that case, the first entry of the `order` list must be the name of the index 
 ```
 
 * `index_col`: the name of the index column in the mapping file that should be used as index.
-  If not specified, the pipeline assumes that the index column is called `'index'` and will only run in index mode if that column exists in the mapping file.
+  If not specified, index mode is not used, so `index_col` must be set explicitly when mapping by index.
 
 Note, that if the index in the mapping file does not match the index in your AnnData object, the pipeline will raise an error.
 
 #### Mapping file format
 
-The file format needs to be tabular and can be either one of TSV, CSC, or Parquet.
+The file format needs to be tabular and can be either one of TSV, CSV, or Parquet.
 Parquet files are fully [compatible with Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/10min.html#parquet) and are more computationally efficient than text-based files, both in storage and processing speed.
 
 ```yaml

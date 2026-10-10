@@ -50,7 +50,7 @@ Notes about parameter names and mapping:
   - Useful for testing behavior across full-sample composition and batch effects.
 
 ### `within_sample`
-  - Samples up to `per_sample` (n_cells_per_sample) cells per sample. If `per_sample` is not set, the code computes floor(n_cells / n_samples).
+  - Samples exactly `per_sample` (n_cells_per_sample) cells per sample; samples with fewer cells are skipped. If `per_sample` is not set, the code computes floor(n_cells / n_samples).
   - Samples are shuffled to avoid systematic bias; sampling is done without replacement.
   - If `n_cells` is None the function will default to keeping all cells (no downsampling).
 
@@ -70,7 +70,7 @@ bash test/run_test.sh -c2     # actual run with max 2 cores
 Updated AnnData and summary files:
 
 - `<out_dir>/subset/dataset~<datasets>/file_id~<file_id>.zarr` — AnnData with subsetting metadata and reduced observation set (for zarr inputs a reference/linking strategy is attempted when possible).
-- adata.obs['subset'] — boolean mask (True for retained cells) set by the subsetting functions.
-- adata.uns['subset'] — dictionary containing the subsetting strategy and parameters used (e.g., strategy, n_cells, per_sample/n_cells_per_sample, seed/min_cells_per_sample).
+- adata.obs['subset'] — boolean mask (True for retained cells), only set by the `within_sample` strategy.
+- adata.uns['subset'] — dictionary containing the subsetting strategy and parameters used (strategy, n_cells, sample_key, per_sample, seed).
 
 > Note: For zarr input stores the pipeline will attempt to reference or link original arrays to avoid copying large arrays where supported by the filesystem/backend. If linking is unsupported some arrays may be copied.

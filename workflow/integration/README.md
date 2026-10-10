@@ -2,6 +2,8 @@
 
 This module provides different scRNA integration methods for batch correction.
 
+Available methods (as defined in `params.tsv`): `unintegrated`, `bbknn`, `combat`, `harmony_pytorch`, `harmonypy`, `scanorama`, `scvi`, `scanvi`, `scvi_vitkl`, `drvi`, `sysvi`, `scpoli` and `scgen`.
+
 ## Configuration
 Here is an example configuration with all available parameters.
 Parameters that are optional can be ommitted in the config and the pipeline will use default values.
@@ -102,21 +104,32 @@ DATASETS:
           sigma: 0.1
           batch_key: batch_2
           n_comps: 30
+
+        drvi:
+          max_epochs: 100
+          n_latent: 32
+
+        sysvi:
+          system_key: phase  # mandatory
+          max_epochs: 100
 ```
 
 ### Module specification
 Mandatory parameters that must be defined are the input file definition, `label`, `batch` and `methods`. All other paramters are optional. 
 The AnnData file in h5ad or zarr requires the following input:
 
-* `raw_counts`: matrix under `.X` or `.layers` containing counts that have not been normalized or log-transformed, needed by e.g. scVI, scANVI, scPoli. Default will be `.X`
-* `norm_counts`: matrix under `.X` or `.layers` containing counts that have been normalized or log-transformed, needed by e.g. Scanorama, scGEN, unintegrated. Default will be `.X`
+* `raw_counts`: matrix under `.X` or `.layers` containing counts that have not been normalized or log-transformed, needed by e.g. scVI, scANVI, scPoli. Must be set explicitly (use `X` if the counts are stored in `.X`).
+* `norm_counts`: matrix under `.X` or `.layers` containing counts that have been normalized or log-transformed, needed by e.g. Scanorama, scGEN, unintegrated. Must be set explicitly (use `X` if the normalised counts are stored in `.X`).
 * `output_types`: filters which methods and method modes to run. There are 3 different abstraction layers that an integration method can work on. Integration could either correct counts (`full`), a low-dimensional representation of the data (`embed`) or the kNN graph (`knn`). Some methods (e.g. Scanorama, unintegrated) provide multiple outputs, which can be utilised independently.
 * `batch`, `label`: columns in `.obs` that are used to correct the batch effect or inform the integration method with cell type information (`label`, only for semi-supervised methods like scANVI, scPoli)
 * `neighbors`: arguments that get passed to the [`sc.pp.neighbors`](https://scanpy.readthedocs.io/en/stable/generated/generated/scanpy.pp.neighbors.html/) function. The kNN is computed for `full` and `embed` outputs after integration
 * `methods`: methods configuration to determine which methods should be used, as well as which hyperparameters those methods should use
   * hyperparamters correspond to the parameters that the integration method supports. For e.g. scvi-tools methods, you can define all parameters for the module setup and training functions at the same level
   * The module also supports parameter exploration. If you pass a list to a hyperparamter, all combinations of that hyperparameter with the other parameters will be computed as a separate hyperparameter computation
-* `var_mask`: column in `.var` that you could 
+* `var_mask`: boolean column(s) in `.var` (e.g. `highly_variable`) defining the features used for integration. Each value becomes a separate run. The column must exist in the input file. If not set, all genes are used.
+* `save_subset`: if `true`, the prepared file stores the count matrices physically subset to the integration features instead of linking the full matrices (default: `false`)
+* `seed`, `threads`: random seed passed to the methods (default: 0) and number of CPU threads (default: 1)
+* `umap_colors`, `plots` (`colors`, `plot_centroids`, `plot_gene_chunk_size`): additional `.obs` columns or genes to colour the UMAP plots by (label and batch columns are always plotted)
 
 ## Output
 
@@ -124,17 +137,19 @@ The output will be saved under `<output_dir>/integration/`.
 There are mappings of inputs (`input_files.tsv`) and outputs (`output_files.tsv`) as well as the mapping of hyperparameters to hex code used in the output files.
 
 ### Metadata
-+ `.uns['dataset']` name of task/dataset
-+ `.uns['methods']` methods applied to this object
++ `.uns['wildcards']` wildcards of the run, prefixed with `integration_` (e.g. `integration_method`, `integration_batch`)
 + `.uns['integration']` integration specific entries
     + `.uns['integration']['method']` intgration method name
     + `.uns['integration']['label_key']` label used for integration
     + `.uns['integration']['batch_key']` batch used for integration
-    + `.uns['integration']['output_type']` output type of method (one of 'knn', 'embed' or 'full')
+    + `.uns['integration']['output_type']` output types of the method (list of 'knn', 'embed' and/or 'full')
+    + `.uns['integration']['hyperparams']` hyperparameters used
+    + `.uns['integration']['model_history']` training history (deep learning methods only)
++ `.uns['output_type']` output type of the processed file (processed output only)
 
 
 ### Integrated output
-The direct method output is under `{out_dir}/integration/dataset{dataset}/file_id~{file_id}/batch~{batch}/method~{method}--hyperparams~{hyperparams}--label~{label}/adata.zarr`
+The direct method output is under `{out_dir}/integration/run_method/dataset~{dataset}/file_id~{file_id}/batch~{batch}/var_mask~{var_mask}/method~{method}--hyperparams~{hyperparams}--label~{label}/adata.zarr`
 Different integration methods provide different types of output.
 Depending on the output type, the object must contain the following slots:
 
@@ -144,15 +159,15 @@ Depending on the output type, the object must contain the following slots:
    + `.obsm['X_emb']` integrated embedding returned by integration method
 3. corrected features (`full`)
    + `.X` corrected feature counts returned by integration method
-   + `.obsm['X_pca']` PCA on corrected feature counts
+   + `.obsm['X_pca']` PCA on corrected feature counts (computed during postprocessing)
 
 ### Processed integrated output
 The integrated output files require further processing to be used in downstream analysis.
-Files with computed embeddings (for full feature outputs) and kNN graphs (for full feature and embedding outputs) are stored under `{out_dir}/integration/dataset{dataset}/file_id~{file_id}/batch~{batch}/method~{method}--hyperparams~{hyperparams}--label~{label}--output_type~{output_type}.zarr`.
+Files with computed embeddings (for full feature outputs) and kNN graphs (for full feature and embedding outputs) are stored under `{out_dir}/integration/dataset~{dataset}/file_id~{file_id}/batch~{batch}/var_mask~{var_mask}/method~{method}--hyperparams~{hyperparams}--label~{label}--output_type~{output_type}.zarr` (including the UMAP in `.obsm['X_umap']`).
 
 ## Contributing to the module
 
-Adding new integration methods to the module simply requires adding a new script under `scripts/integration/methods/` and adding meta information of the method in the `params.tsv`.
+Adding new integration methods to the module simply requires adding a new script under `scripts/methods/` and adding meta information of the method in the `params.tsv`.
 The name of the script must match the method name in the `params.tsv` and the method must be defined in the `params.tsv`, otherwise it won't be recognised by the pipeline.
 When developing the script, you can make use of the global variables and functions from the `integration_utils.py` script.
 This is particlarly useful if you want to manage different parameter assignments to e.g. train and model setup functions (see `scripts/methods/scvi.py` for an example).

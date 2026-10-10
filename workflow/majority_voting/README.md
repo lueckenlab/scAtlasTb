@@ -5,12 +5,12 @@ The main computation is the mode per cell across multiple columns in the AnnData
 
 ## Environments
 
-The following environments are needed for the different metrics. Depending on which metrics you want to run, you do not need to install all environments.
+The following environment is needed:
 
 - [`scanpy`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/scanpy.yaml)
 
 
-# Configuration
+## Configuration
 ```yaml
 DATASETS:
   test:
@@ -21,12 +21,12 @@ DATASETS:
     majority_voting:
       columns:
         - bulk_labels
-        - na_*
+        - na_.*
       threshold: 0.6
 ```
 
 * `columns`: columns or patterns (parsable by [`re`](https://docs.python.org/3/library/re.html)) of columns in `.obs` to consider for majority voting.
-* `threshold`: threshold to determine whether a label has low consensus agreement. If the majority agreement (#major_label/#columns) is lower than `threshold`, it's consider to have low consensus agreement.
+* `threshold`: threshold to determine whether a label has low consensus agreement. If the majority agreement (#major_label/#columns) is lower than or equal to `threshold`, it is considered to have low consensus agreement. Must be set explicitly.
 
 > Note: The main assumption of the `columns` is that the labels across columns are from the same (or mostly same) set of unique labels/
 

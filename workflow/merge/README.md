@@ -38,7 +38,7 @@ DATASETS:
 
 * **`keep_all_columns`**: How to handle observation metadata columns
   - `true`: Keep all obs columns from all datasets, filling missing values with NaN
-  - `false`: Only keep obs columns that are present in all datasets
+  - `false`: Only keep obs columns retained by the concatenation, i.e. columns present in all datasets for `merge_strategy: inner` (all columns for `outer`)
 
 * **`allow_duplicate_obs`**: How to handle duplicate observation names during merging
   - `true`: Allow duplicate cell barcodes/names in the final dataset

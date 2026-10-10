@@ -16,4 +16,4 @@ dependencies:
   - zarr<3
   - pandas<3
   - harmony-pytorch
-  - harmonypy
+  - harmonypy<0.1  # >=0.2 returns Z_corr as cells x dims, which breaks scanpy 1.11 harmony_integrate

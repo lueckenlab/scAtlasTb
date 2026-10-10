@@ -39,7 +39,7 @@ The directories will be created automatically if they do not already exist.
    images: images
 
    # Hardware settings
-   use_gpu: true
+   use_gpu: false
 
 2. Input configuration
 ----------------------
@@ -94,23 +94,21 @@ You can configure the behaviour of each module by specifying their parameters un
 
        # module configuration
        integration:
-         raw_counts: raw/X
-         norm_counts: X
+         raw_counts: layers/counts
+         norm_counts: layers/normcounts
          batch: batch
          methods:
            unintegrated:
+           harmonypy:
            scanorama:
              batch_size: 100
-           scvi:
-             max_epochs: 10
-             early_stopping: true
 
        # module configuration
        metrics:
-         unintegrated: layers/norm_counts
+         unintegrated: layers/normcounts
          batch: batch
          label: bulk_labels
-         methods:
+         metrics:
            - nmi
            - graph_connectivity
 

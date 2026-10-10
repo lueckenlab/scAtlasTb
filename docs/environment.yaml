@@ -16,6 +16,7 @@ dependencies:
   - sphinxcontrib-napoleon
   - pdf2image
   - sphinx-design
+  - sphinxcontrib-mermaid
   - pip
   - pip:
       - sphinxemoji

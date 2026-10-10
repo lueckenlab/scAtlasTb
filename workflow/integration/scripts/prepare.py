@@ -92,7 +92,8 @@ slot_map = {}
 
 # check if var_mask exists in data
 store = get_store(input_file)
-assert var_mask in store['var'], f'var_mask="{var_mask}" not found in {input_file}.'
+if var_mask not in (None, 'None'):
+    assert var_mask in store['var'], f'var_mask="{var_mask}" not found in {input_file}.'
 
 adata_norm, files_to_link, slot_map = read_and_subset(
     input_file=input_file,
