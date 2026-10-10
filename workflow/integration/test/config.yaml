@@ -27,6 +27,7 @@ defaults:
     - multi_wildcards
     - preprocessed
     - harmony
+    - seurat_rpca
     - scarches
     - scvi_tools
     - drvi
@@ -118,6 +119,23 @@ DATASETS:
           scale: true
       umap_colors:
         - phase
+        - bulk_labels
+
+  seurat_rpca:
+    input:
+      integration: test/input/pbmc68k.h5ad
+    integration:
+      threads: 2
+      label: bulk_labels
+      batch: batch
+      methods:
+        seurat_rpca:
+          dims: 20
+          reference:
+            -
+            - ['0', '1']
+      umap_colors:
+        - batch
         - bulk_labels
 
   scarches:
