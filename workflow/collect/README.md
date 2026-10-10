@@ -32,7 +32,7 @@ DATASETS:
   - For **DataFrame slots** (like `obs`): Columns are merged, with file-specific columns getting suffixed with the separator and file ID (e.g., `cell_type--file_1`)
   - For **dictionary slots** (like `obsm`, `obsp`): Keys are merged, with file-specific keys getting suffixed with the separator and file ID
 
-* **`sep`**: Separator string used to distinguish file-specific columns/keys (default: `"_"`). For example, if `sep="--"` and a column exists in file_1, it becomes `column_name--file_1`.
+* **`sep`**: Separator string used to distinguish file-specific columns/keys (default: `"--"`). For example, if `sep="--"` and a column exists in file_1, it becomes `column_name--file_1`.
 
 * **`obs_index_col`**: Specifies which column to use as the obs index for each file:
   - Can be a string (same column for all files) 
