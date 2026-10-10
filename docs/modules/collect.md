@@ -36,7 +36,7 @@ flowchart TD
 ### Inputs
 
 * **File formats:** several `.h5ad` and/or `.zarr` files per task, configured under `input: collect:` (see {ref}`architecture`). All files must describe the **same cells and genes** (identical `obs_names`/`var_names` sets; order may differ). The first file is the reference for ordering.
-* **Config keys** (defaults as implemented in the Snakefile): `same_slots` (`[]`), `merge_slots` (`[]`), `skip_slots` (`[]`), `sep` (`'_'`), `obs_index_col` (`{}`; string = same column for all files, or dict whose keys are regular expressions matched with `re.fullmatch` against file ids). `dask`/`backed` are accepted but not used by the script (files are always opened with `dask=True, backed=True`).
+* **Config keys** (defaults as implemented in the Snakefile): `same_slots` (`[]`), `merge_slots` (`[]`), `skip_slots` (`[]`), `sep` (`'--'`), `obs_index_col` (`{}`; string = same column for all files, or dict whose keys are regular expressions matched with `re.fullmatch` against file ids). `dask`/`backed` are accepted but not used by the script (files are always opened with `dask=True, backed=True`).
 * Only slots listed in `same_slots` or `merge_slots` and not in `skip_slots` are read. For `.zarr` inputs, `X`, `raw`, `layers`, `obsm` and `obsp` are never loaded: `layers`/`obsm`/`obsp` are replaced by empty sparse placeholders that only carry the key names (they are later symlinked). For `.h5ad` inputs the data are loaded.
 
 ### Processing steps
