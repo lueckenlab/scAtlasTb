@@ -52,22 +52,29 @@ def select_neighbors(adata, output_type):
 
 def scanpy_to_neighborsresults(adata):
     from scib_metrics.nearest_neighbors import NeighborsResults
-    
+
     n_neighbors = adata.uns["neighbors"]["params"]["n_neighbors"]
     n_obs = adata.n_obs
-    
-    # convert sparse to dense neighbor lists
-    distances = np.full((n_obs, n_neighbors), np.inf)
-    indices = np.full((n_obs, n_neighbors), -1)
-
-    # use scanpy's stored distances (CSR sparse)
     dist_matrix = adata.obsp["distances"].tocsr()
 
+    # scib_metrics expects each cell as neighbor 0 (distance 0), n_neighbors columns total.
+    # scanpy stores n_neighbors-1 off-diagonal neighbors (self excluded); some backends
+    # (e.g. rapids) may include self. Force the convention regardless of backend.
+    indices = np.full((n_obs, n_neighbors), -1, dtype=int)
+    distances = np.full((n_obs, n_neighbors), np.inf, dtype=float)
+    indices[:, 0] = np.arange(n_obs)
+    distances[:, 0] = 0.0
+
+    indptr = dist_matrix.indptr
     for i in range(n_obs):
-        row = dist_matrix[i].indices
-        dists = dist_matrix[i].data
-        order = np.argsort(dists)[:n_neighbors]  # sort neighbors by distance
-        indices[i, :len(order)] = row[order]
-        distances[i, :len(order)] = dists[order]
+        sl = slice(indptr[i], indptr[i + 1])
+        row = dist_matrix.indices[sl]
+        d = dist_matrix.data[sl]
+        keep = row != i                            # drop self if the backend stored it
+        row, d = row[keep], d[keep]
+        order = np.argsort(d)[: n_neighbors - 1]   # K-1 nearest non-self
+        k = len(order)
+        indices[i, 1 : 1 + k] = row[order]
+        distances[i, 1 : 1 + k] = d[order]
 
     return NeighborsResults(indices=indices, distances=distances)
