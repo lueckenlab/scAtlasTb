@@ -1,6 +1,7 @@
 from pathlib import Path
 import logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 import numpy as np
 import anndata as ad
 from tqdm import tqdm
@@ -63,7 +64,9 @@ if 'feature_name' in adata.var.columns:
     adata.var_names = adata.var['feature_name'].astype(str).values
 
 all_obs_names = adata.obs_names.copy()
-all_var_names = adata.var_names.copy()
+# feature_name can be non-unique (CxG feature collisions); use unique feature_id for the
+# var subset_mask so duplicate columns dropped during dedup aren't double-counted.
+all_var_ids = adata.var['feature_id'].copy() if 'feature_id' in adata.var.columns else adata.var_names.copy()
 
 logging.debug('Parse gene sets...')
 logging.debug(f'Initial gene sets: {gene_sets}')
@@ -153,7 +156,8 @@ adata = adata[:, genes].copy()
 logging.info(f'Write to {output_file}...')
 logging.info(adata.__str__())
 obs_mask = all_obs_names.isin(adata.obs_names)
-var_mask = all_var_names.isin(adata.var_names)
+final_var_ids = adata.var['feature_id'] if 'feature_id' in adata.var.columns else adata.var_names
+var_mask = np.asarray(all_var_ids.isin(final_var_ids))
 write_zarr_linked(
     adata,
     in_dir=input_file,
