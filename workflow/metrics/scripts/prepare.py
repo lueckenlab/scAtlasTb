@@ -104,8 +104,20 @@ if var_key is None:
     )
     adata.var[var_key] = True
 else:
-    assert var_key in adata.var.columns, \
-        f'"{var_key}" not in adata var columns: {adata.var.columns.tolist()}'
+    if var_key not in adata.var.columns:
+        if adata.var.shape[1] == 0:
+            # Integration output has empty .var (features already subsetted by
+            # var_mask during integration_prepare); treat all remaining genes
+            # as selected, matching the var_key=None branch above.
+            logging.info(
+                f'adata.var has no columns; assuming integration already applied '
+                f'"{var_key}" mask, setting all True'
+            )
+            adata.var[var_key] = True
+        else:
+            raise AssertionError(
+                f'"{var_key}" not in adata var columns: {adata.var.columns.tolist()}'
+            )
 
 logging.info(f'Set "{var_key}" in adata.var: {adata.var[var_key].sum()} HVGs')
 

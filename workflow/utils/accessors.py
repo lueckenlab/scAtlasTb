@@ -115,6 +115,11 @@ def subset_hvg(
     if var_column is None or var_column == 'None':
         var_column = 'mask'
         adata.var[var_column] = True
+    elif var_column not in adata.var.columns and adata.var.shape[1] == 0:
+        # Integration has already subsetted features; no .var columns survived.
+        # Treat as if the mask was applied (all remaining genes selected),
+        # mirroring the var_column=None branch above.
+        adata.var[var_column] = True
     assert var_column in adata.var.columns, f'Column {var_column} not found in adata.var'
     assert adata.var[var_column].dtype == bool, f'Column {var_column} is not boolean'
     
