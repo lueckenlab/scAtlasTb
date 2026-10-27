@@ -53,6 +53,8 @@ SCVI_MODEL_PARAMS = [
     'extra_decoder_kwargs',
     'categorical_covariate_keys',
     'continuous_covariate_keys',
+    'batch_representation',
+    'batch_representation_kwargs',
     # vitkl parameters
     'library_n_hidden',
     'library_log_vars_weight',

@@ -176,6 +176,7 @@ DATASETS:
           use_observed_lib_size: true
           max_epochs: 20
           early_stopping: true
+          batch_representation: embedding
         scvi_vitkl:
           dispersion: gene-batch
           use_observed_lib_size: false
@@ -270,6 +271,7 @@ DATASETS:
           n_prior_components: 5
           max_epochs: 20
           early_stopping: true
+          batch_representation: embedding
       umap_colors:
         - bulk_labels
         - phase
