@@ -31,6 +31,7 @@ defaults:
     - scvi_tools
     - drvi
     - sysvi
+    - scvix
 
 
 DATASETS:
@@ -175,6 +176,7 @@ DATASETS:
           use_observed_lib_size: true
           max_epochs: 20
           early_stopping: true
+          batch_representation: embedding
         scvi_vitkl:
           dispersion: gene-batch
           use_observed_lib_size: false
@@ -246,6 +248,30 @@ DATASETS:
           early_stopping:
             - false
             - true
+      umap_colors:
+        - bulk_labels
+        - phase
+        - percent_mito
+
+  scvix:
+    input:
+      integration:
+        orig: test/input/pbmc68k.h5ad
+    integration:
+      label: bulk_labels
+      batch: batch
+      methods:
+        scvix:
+          assay_key: batch
+          adversarial_group_key: phase
+          continuous_covariate_keys:
+            - percent_mito
+          prior: vamp
+          dispersion: gene-assay         # px_r shape (n_genes, n_assay)
+          n_prior_components: 5
+          max_epochs: 20
+          early_stopping: true
+          batch_representation: embedding
       umap_colors:
         - bulk_labels
         - phase

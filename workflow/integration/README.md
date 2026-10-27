@@ -2,7 +2,7 @@
 
 This module provides different scRNA integration methods for batch correction.
 
-Available methods (as defined in `params.tsv`): `unintegrated`, `bbknn`, `combat`, `harmony_pytorch`, `harmonypy`, `scanorama`, `scvi`, `scanvi`, `scvi_vitkl`, `drvi`, `sysvi`, `scpoli` and `scgen`.
+Available methods (as defined in `params.tsv`): `unintegrated`, `bbknn`, `combat`, `harmony_pytorch`, `harmonypy`, `scanorama`, `scvi`, `scvix`, `scanvi`, `scvi_vitkl`, `drvi`, `sysvi`, `scpoli` and `scgen`.
 
 ## Configuration
 Here is an example configuration with all available parameters.

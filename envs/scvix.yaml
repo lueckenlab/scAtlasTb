@@ -1,0 +1,16 @@
+name: scvix
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12  # the scvi-tools SCVIX branch requires >=3.12
+  - anndata=0.11
+  - scanpy=1.11
+  - zarr<3
+  - pandas<3
+  - scipy<1.15
+  - dask
+  - sparse
+  - pip
+  - pip:
+    - torch>=2.5
+    - git+https://github.com/scverse/scvi-tools.git@scvix_da_omer2_rebase_upstream
