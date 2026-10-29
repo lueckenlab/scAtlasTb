@@ -7,7 +7,6 @@ dependencies:
   - anndata=0.11
   - scanpy=1.11
   - leidenalg
-  - louvain
   - scikit-learn<1.6 # required by dask-ml
   - dask<2024.8
   - dask-ml
@@ -17,3 +16,6 @@ dependencies:
   - pandas<3
   - harmony-pytorch
   - harmonypy<0.1  # >=0.2 returns Z_corr as cells x dims, which breaks scanpy 1.11 harmony_integrate
+  - pip
+  - pip:
+    - git+https://github.com/mumichae/scatlastb_utils.git
