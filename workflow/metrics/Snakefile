@@ -89,6 +89,10 @@ include: 'rules/merge.smk'
 include: 'rules/plots.smk'
 
 rule all:
+    message:
+        """
+        Collect all metrics
+        """
     input:
         rules.prepare_all.input,
         rules.run_all.input,

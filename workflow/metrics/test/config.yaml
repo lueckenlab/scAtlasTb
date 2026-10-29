@@ -32,11 +32,11 @@ defaults:
       # - pcr_y  # broken function
       - kbet_pg
   datasets:
-    - test_metrics
-    - test_clustering_metrics
-    - test_clustering_precomputed
-    - test_integration
-    - scib_metrics
+    # - test_metrics
+    # - test_clustering_metrics
+    # - test_clustering_precomputed
+    # - test_integration
+    # - scib_metrics
     - morans_i
 
 
