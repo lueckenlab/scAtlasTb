@@ -1,9 +1,11 @@
 import logging
 import numpy as np
 import pandas as pd
+import scanpy as sc
 from pprint import pformat
 
 from utils.io import read_anndata, write_zarr_linked
+from utils.misc import dask_compute
 from utils.accessors import match_genes
 
 logging.basicConfig(level=logging.INFO)
@@ -54,14 +56,14 @@ def parse_genes(gene_list, adata):
     return genes_use
 
 
-def predict_sex_by_donor(
+def predict_sex_by_XY(
     adata,
     donor_key,
     predict_key,
     x_genes,
     y_genes,
     feature_column=None,
-    default=None,
+    default=np.nan,
     x_threshold=0,
     y_threshold=4,
     frac=0.1,
@@ -150,16 +152,20 @@ def predict_sex_by_donor(
     x_exp = f"{predict_key}_x_exp"
     y_exp = f"{predict_key}_y_exp"
 
-    if feature_column:
-        x_genes = adata.var[feature_column].isin(x_genes)
-        y_genes = adata.var[feature_column].isin(y_genes)
-    else:
-        x_genes = adata.var_names.isin(x_genes)
-        y_genes = adata.var_names.isin(y_genes)
+    if not feature_column:
+        feature_column = 'feature_name'
+        adata.var[feature_column] = adata.var_names.astype(str)
+
+    gene_mask = adata.var[feature_column].isin(x_genes+y_genes)
+    print(f'Subset to {sum(gene_mask)} genes...', flush=True)
+    adata = dask_compute(adata[:, gene_mask].copy(), layers='X')
+
+    print('Scale data...', flush=True)
+    sc.pp.scale(adata, zero_center=False)
 
     # Per-cell expression (sparse-safe)
-    x_exp_cell = stats.mean(adata[:, x_genes].X, axis=1)
-    y_exp_cell = stats.mean(adata[:, y_genes].X, axis=1)
+    x_exp_cell = stats.mean(adata[:, adata.var[feature_column].isin(x_genes)].X, axis=1)
+    y_exp_cell = stats.mean(adata[:, adata.var[feature_column].isin(y_genes)].X, axis=1)
 
     # Build per-cell table
     df = pd.DataFrame(
@@ -208,10 +214,11 @@ def predict_sex_by_chrY_ratio(
     y_par_genes,
     feature_column=None,
     threshold=0.5,
-    default=None,
-    predict_key="sex",
-    nonpar_col="chrY_nonPAR_UMIs",
-    par_col="chrY_PAR_UMIs",
+    default=np.nan,
+    predict_prefix="sex_chrY_",
+    nonpar_col="nonPAR_UMIs",
+    par_col="PAR_UMIs",
+    ratio_col="nonPAR_to_PAR",
 ):
     """
     Predict donor sex using the ratio of chrY non-PAR to PAR UMIs.
@@ -257,6 +264,11 @@ def predict_sex_by_chrY_ratio(
     """
     from fast_array_utils import stats
 
+    if predict_prefix:
+        nonpar_col = f"{predict_prefix}{nonpar_col}"
+        par_col = f"{predict_prefix}{par_col}"
+        ratio_col = f"{predict_prefix}{ratio_col}"
+
     if feature_column:
         nonpar_mask = adata.var[feature_column].isin(y_nonpar_genes)
         par_mask = adata.var[feature_column].isin(y_par_genes)
@@ -285,10 +297,10 @@ def predict_sex_by_chrY_ratio(
         out=np.full_like(nonpar_vals, np.inf),
         where=par_vals != 0,
     )
-    donor_chrY["nonPAR_to_PAR"] = ratio
+    donor_chrY[ratio_col] = ratio
 
-    donor_chrY[predict_key] = np.where(
-        donor_chrY["nonPAR_to_PAR"] >= threshold,
+    donor_chrY[predict_prefix] = np.where(
+        donor_chrY[ratio_col] >= threshold,
         "male",
         "female",
     )
@@ -296,11 +308,11 @@ def predict_sex_by_chrY_ratio(
     if default is not None:
         # Only apply the default when both PAR and nonPAR counts are zero
         mask_nan = (
-            ~np.isfinite(donor_chrY["nonPAR_to_PAR"])
+            ~np.isfinite(donor_chrY[ratio_col])
             & (nonpar_vals == 0)
             & (par_vals == 0)
         )
-        donor_chrY.loc[mask_nan, predict_key] = default
+        donor_chrY.loc[mask_nan, predict_prefix] = default
 
     return donor_chrY
 
@@ -338,9 +350,15 @@ x_genes = parse_genes(x_genes, adata)
 y_genes = parse_genes(y_genes, adata)
 y_nonpar_genes = parse_genes(y_nonpar_genes, adata)
 y_par_genes = parse_genes(y_par_genes, adata)
+all_genes = set(x_genes) | set(y_genes) | set(y_nonpar_genes) | set(y_par_genes)
+
+if not is_normalized:
+    logging.info('Normalizing and log-transforming data...')
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
 
 logging.info(f'Predict sex by X and Y gene expression for {len(donors)} donors...')
-donor_exp = predict_sex_by_donor(
+donor_exp = predict_sex_by_XY(
     adata,
     donor_key=donor_key,
     predict_key=predict_key,
@@ -355,6 +373,7 @@ donor_exp = predict_sex_by_donor(
 adata.obs = adata.obs.join(donor_exp[predict_key], on=donor_key)
 
 logging.info(f'Predict sex by chrY non-PAR to PAR ratio for {len(donors)} donors...')
+predict_chry = f"{predict_key}_chrY"
 donor_chrY = predict_sex_by_chrY_ratio(
     adata,
     donor_key=donor_key,
@@ -362,9 +381,9 @@ donor_chrY = predict_sex_by_chrY_ratio(
     y_par_genes=y_par_genes,
     feature_column='feature_name',
     threshold=params.get("chrY_threshold", 0.5),
-    predict_key=f"{predict_key}_chrY",
+    predict_prefix=predict_chry,
 )
-adata.obs = adata.obs.join(donor_chrY[[f"{predict_key}_chrY"]], on=donor_key)
+adata.obs = adata.obs.join(donor_chrY, on=donor_key)
 
 adata.uns['predict_sex'] = {
     "X_Y_expression": {
@@ -392,23 +411,30 @@ if reference_key in df.columns:
     exp_mismatch_donors = df[(df[reference_key] != df[predict_key])][donor_key].dropna().unique()
     donor_exp = donor_exp.loc[exp_mismatch_donors]
     accuracy = (df.loc[ref_mask, reference_key] == df.loc[ref_mask, predict_key]).mean()
-    adata.uns['predict_sex']['X_Y_expression']['accuracy'] = accuracy
     logging.info(f'X_Y_expression accuracy: {accuracy:.2%}\n{donor_exp.to_string()}')
+
+    adata.uns['predict_sex']['X_Y_expression']['accuracy'] = accuracy
+    adata.uns['predict_sex']['X_Y_expression']['mismatched'] = donor_exp
 
     # chrY-based prediction
     chrY_mismatch_donors = df[(df[reference_key] != df[f"{predict_key}_chrY"])][donor_key].dropna().unique()
     donor_chrY = donor_chrY.loc[chrY_mismatch_donors]
     accuracy = (df.loc[ref_mask, reference_key] == df.loc[ref_mask, f"{predict_key}_chrY"]).mean()
-    adata.uns['predict_sex']['chrY_ratio']['accuracy'] = accuracy
     logging.info(f'chrY_ratio accuracy: {accuracy:.2%}\n{donor_chrY.to_string()}')
 
+    adata.uns['predict_sex']['chrY_ratio']['accuracy'] = accuracy
+    adata.uns['predict_sex']['chrY_ratio']['mismatched'] = donor_chrY
+
     # subset to union of mismatches
-    df = df[df[donor_key].isin(set(exp_mismatch_donors) | set(chrY_mismatch_donors))]
+    mismatched_donors = set(exp_mismatch_donors) | set(chrY_mismatch_donors)
+    df = df[df[donor_key].isin(mismatched_donors)].copy()
 else:
     logging.info(f'X_Y_expression:\n{donor_exp.to_string()}')
     logging.info(f'chrY_ratio:\n{donor_chrY.to_string()}')
 
-logging.info(f'Predictions:\n{df.value_counts(dropna=False)}')
+value_counts = df.value_counts(dropna=False).reset_index().set_index(donor_key)
+adata.uns['predict_sex']['prediction_counts'] = value_counts
+logging.info(f'Predictions:\n{value_counts}')
 
 logging.info(f'Write file: {output_file}...')
 write_zarr_linked(
