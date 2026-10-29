@@ -14,11 +14,19 @@ mcfg = ModuleConfig(
         'new_columns',
         'merge_columns',
         'selective_update',
+        'constant_columns',
         'dask',
         'threads',
     ],
 )
 paramspace = mcfg.get_paramspace()
+
+
+def get_merge_sep(wildcards):
+    merge_column_config = mcfg.get_from_parameters(wildcards, 'merge_columns', default={})
+    if isinstance(merge_column_config, dict):
+        return merge_column_config.get('sep', '-')
+    return '-'
 
 
 def relabel_input_files(wildcards):
@@ -32,8 +40,8 @@ def relabel_input_files(wildcards):
     
     merge_column_config = mcfg.get_from_parameters(wildcards, 'merge_columns')
     if isinstance(merge_column_config, dict):
-        assert 'file' in merge_column_config, f'merge_columns config must contain a file key for {wildcards}'
-        input_files['merge_columns'] = merge_column_config.get('file')
+        if merge_column_config.get('file'):
+            input_files['merge_columns'] = merge_column_config.get('file')
     
     selective_update_config = mcfg.get_from_parameters(wildcards, 'selective_update')
     if isinstance(selective_update_config, dict):
@@ -55,9 +63,11 @@ rule relabel:
         rename_columns=lambda wildcards: mcfg.get_from_parameters(wildcards, 'rename_columns', default={}),
         mapping_order=lambda wildcards: mcfg.get_from_parameters(wildcards, 'new_columns', default={}).get('order'),
         index_col=lambda wildcards: mcfg.get_from_parameters(wildcards, 'new_columns', default={}).get('index_col'),
-        merge_sep=lambda wildcards: mcfg.get_from_parameters(wildcards, 'merge_columns', default={}).get('sep', '-'),
+        merge_sep=get_merge_sep,
+        merge_columns_config=lambda wildcards: mcfg.get_from_parameters(wildcards, 'merge_columns', default=None),
         selective_update=lambda wildcards: mcfg.get_from_parameters(wildcards, 'selective_update', default=None),
         rename_obsm_keys=lambda wildcards: mcfg.get_from_parameters(wildcards, 'rename_obsm_keys', default=None),
+        constant_columns=lambda wildcards: mcfg.get_from_parameters(wildcards, 'constant_columns', default=None),
         dask=lambda wildcards: mcfg.get_from_parameters(wildcards, 'dask', default=True),
     conda:
         get_env(config, 'scanpy', env_dir='envs')

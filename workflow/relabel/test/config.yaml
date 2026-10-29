@@ -7,6 +7,7 @@ defaults:
     - test_relabel
     - test_relabel_index
     - test_rename_columns
+    - test_rename_columns_and_constant_columns
     - test_selective_update
     - test_selective_update_query
     # - test_fail
@@ -68,6 +69,17 @@ DATASETS:
     relabel:
       rename_columns:
         bulk_labels: new_name
+
+  test_rename_columns_and_constant_columns:
+    input:
+      relabel: test/input/pbmc68k.h5ad
+    relabel:
+      rename_columns:
+        bulk_labels: new_name
+      constant_columns:
+        dataset: "pbmc68k"
+        processing_version: "1.0"
+        quality_control: "passed"
 
   test_selective_update:
     input:
