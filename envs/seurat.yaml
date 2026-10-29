@@ -1,0 +1,18 @@
+name: seurat
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.4
+  - r-data.table
+  - r-anndata
+  - r-seurat
+  - python=3.11
+  - anndata>=0.11
+  - scanpy >=1.11
+  - dask
+  - dask-ml
+  - sparse
+  - zarr
+  - ipykernel
+  - r-irkernel

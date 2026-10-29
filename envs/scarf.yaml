@@ -1,0 +1,27 @@
+name: scarf
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=1.26.4
+  - anndata=0.10
+  - scanpy=1.10
+  - scipy<1.15
+  - scikit-learn
+  - scikit-network
+  - statsmodels
+  - networkx
+  - threadpoolctl
+  - joblib
+  - numba
+  - hnswlib
+  - dask[array]>=2024.7.1
+  - zarr
+  - sparse
+  - h5py>=3.3.0
+  - leidenalg
+  - loguru
+  - pip
+  - pip:
+    - scarf[extra]
+    - topacedo
