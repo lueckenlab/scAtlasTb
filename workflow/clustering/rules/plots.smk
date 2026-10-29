@@ -17,6 +17,14 @@ use rule plots from preprocessing as clustering_plot_umap with:
             mcfg.get_from_parameters(wildcards, 'plots', default={}).get('colors', []),
         plot_centroids=lambda wildcards: get_cluster_keys(wildcards) +
             mcfg.get_from_parameters(wildcards, 'plots', default={}).get('plot_centroids', []),
+    threads:
+        lambda wildcards: max(
+            1,
+            min(
+                mcfg.get_from_parameters(wildcards, 'threads', default=5),
+                len(mcfg.get_from_parameters(wildcards, 'umap_colors', default=[]))
+            )
+        )
     resources:
         mem_mb=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='mem_mb',attempt=attempt, factor=1),
         partition=mcfg.get_resource(profile='cpu',resource_key='partition'),
@@ -37,15 +45,22 @@ use rule plot_evaluation from clustering as clustering_plot_evaluation with:
         zarr=rules.clustering_merge.output.zarr,
     output:
         plots=directory(mcfg.image_dir / 'dataset~{dataset}' / 'file_id~{file_id}' / 'evaluation')
-    threads: 5
     params:
         cluster_keys=get_cluster_keys,
-        covariates=lambda wildcards: mcfg.get_from_parameters(wildcards, 'umap_colors', default=[])
+        covariates=lambda wildcards: mcfg.get_from_parameters(wildcards, 'umap_colors', default=[]) +
+            mcfg.get_from_parameters(wildcards, 'plots', default={}).get('colors', []),
+        max_categories=lambda wildcards: mcfg.get_from_parameters(wildcards, 'plots', default={}).get('max_categories', 100),
     conda:
         get_env(config, 'scanpy')
     retries: 1
     threads:
-        lambda wildcards: max(1, min(10, len(mcfg.get_from_parameters(wildcards, 'umap_colors', default=[]))))
+        lambda wildcards: max(
+            1,
+            min(
+                mcfg.get_from_parameters(wildcards, 'threads', default=5),
+                len(mcfg.get_from_parameters(wildcards, 'umap_colors', default=[]))
+            )
+        )
     resources:
         partition=mcfg.get_resource(profile='cpu',resource_key='partition'),
         qos=mcfg.get_resource(profile='cpu',resource_key='qos'),
