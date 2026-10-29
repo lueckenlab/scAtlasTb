@@ -45,10 +45,40 @@ A full example is in `workflow/marker_genes/test/config.yaml`.
 - **`layer`** (default: `X`): expression matrix to use for testing and user marker plots.
 - **`rank_genes_groups`**: keyword arguments for [`scanpy.tl.rank_genes_groups`](https://scanpy.readthedocs.io/en/stable/api/generated/scanpy.tl.rank_genes_groups.html) (e.g. `method`, `reference`, `n_genes`).
 - **`plot`**: keyword arguments for the scanpy `rank_genes_groups` plotting functions. Special keys: `n_genes` (genes per group, default 10), `min_logfoldchange` (filter for plotted genes), `n_groups_per_split` (number of groups per dot/matrix plot).
+- **`plot.group_order`** (optional): order in which groups are shown in the user marker gene plots. Matching groups are plotted in the configured order; any remaining observed groups are appended afterwards. See [Group ordering](#group-ordering) below.
 - **`marker_genes`**: either a comma-separated string of keys into the top-level `MARKER_GENES` dictionary, or a dictionary of gene sets. Gene sets may be a list of genes, a dictionary `{label: [genes]}`, or a nested dictionary of such dictionaries.
+
+### Group ordering
+
+`group_order` belongs under `plot`. For a single group, use a flat list:
+
+```yaml
+plot:
+  group_order:
+    - B_cells
+    - T_cells
+```
+
+For multiple groups with different orderings, use a dict keyed by group name:
+
+```yaml
+groups:
+  - bulk_labels
+  - phase
+plot:
+  group_order:
+    bulk_labels:
+      - B_cells
+      - T_cells
+      - Myeloid
+    phase:
+      - S
+      - G1
+      - G2M
+```
 
 ## Output
 
 - `<output_dir>/marker_genes/dataset~<dataset>/file_id~<file_id>.zarr`: AnnData with `.uns['marker_genes_group=<group>']` (the `rank_genes_groups` result) for every configured group.
 - `<output_dir>/marker_genes/groups/dataset~<dataset>/file_id~<file_id>/group=<group>--marker_genes.tsv`: table of marker genes per group with scores, log fold changes, p-values and expression fractions.
-- `<images>/marker_genes/dataset~<dataset>/file_id~<file_id>/group=<group>/`: rank plot, dot plots and matrix plots of computed markers, and dot plots of user-defined marker genes (`user_markers/`).
+- `<images>/marker_genes/dataset~<dataset>/file_id~<file_id>/group=<group>/`: rank plot, dot plots and matrix plots of computed markers, and dot plots and matrix plots of user-defined marker genes (`user_markers/`).
