@@ -2,33 +2,21 @@ from pprint import pformat
 import logging
 logging.basicConfig(level=logging.INFO)
 from scanpy.pp import pca
-try:
-    import subprocess
-    if subprocess.run('nvidia-smi', shell=True).returncode != 0:
-        logging.info('No GPU found...')
-        raise ImportError()
-    from rapids_singlecell.pp import harmony_integrate
-    import cupy as cp
-    import rmm
-    from rmm.allocators.cupy import rmm_cupy_allocator
-    rmm.reinitialize(
-        managed_memory=True,
-        pool_allocator=False,
-    )
-    cp.cuda.set_allocator(rmm_cupy_allocator)
-    logging.info('Using rapids_singlecell...')
-    USE_GPU = True
-except ImportError as e:
-    from scanpy.external.pp import harmony_integrate
-    logging.info(f'Importing rapids failed due to:\n{e}')
-    logging.info('Importing scanpy...')
-    USE_GPU = False
+
+import dask
+dask.config.set(scheduler='threads')
 
 from integration_utils import add_metadata, remove_slots, get_hyperparams, PCA_PARAMS, \
     clean_categorical_column
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import subset_hvg
 from utils.misc import dask_compute
+from utils.processing import sc, USE_GPU
+
+if USE_GPU:
+    harmony_integrate = sc.pp.harmony_integrate
+else:
+    harmony_integrate = sc.external.pp.harmony_integrate
 
 
 input_file = snakemake.input[0]
@@ -36,6 +24,8 @@ output_file = snakemake.output[0]
 wildcards = snakemake.wildcards
 params = snakemake.params
 batch_key = wildcards.batch
+
+dask.config.set({'num_workers': snakemake.threads})
 
 hyperparams = params.get('hyperparams', {})
 hyperparams = {} if hyperparams is None else hyperparams

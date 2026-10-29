@@ -6,6 +6,9 @@ import torch
 import scarches as sca
 from scarches.dataset.trvae.data_handling import remove_sparsity
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import add_metadata, get_hyperparams, remove_slots, \
     set_model_history_dtypes, plot_model_history, clean_categorical_column
 from scArches_utils import SCGEN_MODEL_PARAMS
@@ -25,6 +28,7 @@ params = snakemake.params
 
 torch.manual_seed(params.get('seed', 0))
 torch.set_num_threads(snakemake.threads)
+dask.config.set({'num_workers': snakemake.threads})
 
 model_params, train_params = get_hyperparams(
     hyperparams=params.get('hyperparams', {}),

@@ -8,6 +8,9 @@ from pathlib import Path
 import logging
 logging.basicConfig(level=logging.INFO)
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import add_metadata, get_hyperparams, remove_slots, set_model_history_dtypes, \
     SCVI_MODEL_PARAMS, plot_model_history, clean_categorical_column
 from utils.io import read_anndata, write_zarr_linked
@@ -29,6 +32,7 @@ torch.set_float32_matmul_precision('medium')
 scvi.settings.seed = params.get('seed', 0)
 scvi.settings.progress_bar_style = 'tqdm'
 scvi.settings.num_threads = snakemake.threads
+dask.config.set({'num_workers': snakemake.threads})
 
 model_params, train_params = get_hyperparams(
     hyperparams=params.get('hyperparams', {}),
@@ -111,38 +115,40 @@ model = scvi.model.SCANVI.from_scvi_model(
 logging.info(f'Train scANVI with parameters:\n{pformat(train_scanvi)}')
 # batch_size = train_scanvi.get("batch_size", 128)
 # steps_per_epoch = ceil(adata.n_obs / batch_size)
+checkpoint_path = output_model / f"scanvi_best.ckpt"
+callbacks = [
+    scvi.train.SaveCheckpoint(
+        dirpath=output_model,
+        filename=checkpoint_path.name,
+        monitor="validation_accuracy",
+        load_best_on_end=True,
+        check_nan_gradients=True,
+    )
+]
+
 try:
     model.train(
-        callbacks=[
-            scvi.train.SaveCheckpoint(
-                dirpath=output_model.parent,
-                filename=output_model.name,
-                monitor="elbo_validation",
-                load_best_on_end=True,
-                check_nan_gradients=True,
-            )
-        ],
+        callbacks=callbacks,
         **train_scanvi,
     )
-except Exception as e:
-    logging.warning(f"Training failed: {e}. Attempting to load best checkpoint if available...")
-    checkpoint_path = Path(output_model)
+except Exception as train_err:
+    logging.exception("Training failed. Attempting checkpoint recovery...")
+    
     if checkpoint_path.exists():
         try:
-            model = scvi.model.SCANVI.load(checkpoint_path, adata)
-            logging.info(f"Successfully loaded SCANVI checkpoint from {checkpoint_path} after training failure.")
-        except Exception as load_err:
-            logging.error(
-                f"Failed to load SCANVI checkpoint from {checkpoint_path} after training error: {load_err}"
+            model = scvi.model.SCANVI.load_from_checkpoint(
+                checkpoint_path, 
+                adata=adata,
             )
+            logging.info(f"Successfully loaded SCANVI checkpoint from {checkpoint_path} after training failure.")
+        except Exception:
+            logging.exception("Checkpoint loading failed.")
             raise RuntimeError(
-                f"Training failed and loading SCANVI checkpoint from {checkpoint_path} also failed."
-            ) from e
+                "Training failed and checkpoint recovery also failed."
+            ) from train_err
     else:
-        logging.error(
-            f"Training failed and no SCANVI checkpoint was found at {checkpoint_path}; re-raising original error."
-        )
-        raise
+        logging.error(f"No checkpoint found at {checkpoint_path}")
+        raise train_err
 
 plot_model_history(
     model=model,
