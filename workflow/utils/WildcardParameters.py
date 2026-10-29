@@ -91,7 +91,7 @@ class WildcardParameters:
         # self.paramspace = Paramspace(
         #     self.wildcards_df[self.wildcard_names],
         #     **paramspace_kwargs
-        # )        
+        # )
 
 
     def subset_by_query(
@@ -103,7 +103,11 @@ class WildcardParameters:
         """
         Helper function to subset self.wildcards_df by query dictionary
         
-        :param query_dict: Mapping of column and value to subset by
+        :param query_dict: Mapping of column and value to subset by.
+            Values can be:
+            - scalar: equality filter
+            - list/tuple/set: inclusion filter
+            - dict with operator, e.g. {'notin': [False, 'False']}
         :param columns: columns to subset wildcards_df by
         :return: subset of wildcards_df
         """
@@ -114,15 +118,42 @@ class WildcardParameters:
             columns = self.wildcards_df.columns
         
         df = self.wildcards_df.copy()
+
+        def _as_iterable(x):
+            if isinstance(x, (list, tuple, set, pd.Index, np.ndarray)):
+                return x
+            return [x]
+
+        def _apply_operator_filter(_df, _key, _op, _val):
+            if _op in ('eq', '=='):
+                return _df[_df[_key] == _val]
+            if _op in ('ne', '!='):
+                return _df[_df[_key] != _val]
+            if _op in ('in', 'isin'):
+                return _df[_df[_key].isin(_as_iterable(_val))]
+            if _op in ('notin', 'not_in', 'nin', '!in'):
+                return _df[~_df[_key].isin(_as_iterable(_val))]
+            raise ValueError(
+                f'Unsupported operator "{_op}" for query key "{_key}". '
+                'Use one of: eq, ne, in, notin.'
+            )
+
         # subset by query
         for key, value in query_dict.items():
             if key not in df.columns:
                 continue
-            if isinstance(value, (list, tuple, set)):
+            if isinstance(value, dict):
+                if len(value) != 1:
+                    raise ValueError(
+                        f'Operator query for key "{key}" must have exactly one operator. '
+                        f'Got: {list(value.keys())}'
+                    )
+                op, op_value = next(iter(value.items()))
+                df = _apply_operator_filter(df, key, op, op_value)
+            elif isinstance(value, (list, tuple, set)):
                 df = df[df[key].isin(value)]
             else:
-                # df = df[df[key] == value]
-                df = df.query(f'{key} == @value')
+                df = df[df[key] == value]
             
             if verbose:
                 print(f'subset by {key} ==  {value}')
