@@ -17,6 +17,27 @@ from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 # else:
 #     rank_gene_func = sc.tl.rank_genes_groups
 
+def write_empty(adata, output_file, output_tsv):
+    write_zarr_linked(
+        adata,
+        in_dir=input_file,
+        out_dir=output_file,
+        slot_map={'X': layer}
+    )
+
+    markers_df = pd.DataFrame(
+        columns=[
+            'gene',
+            'z-score',
+            'logfoldchange',
+            'pval',
+            'pval_adj',
+            'cluster',
+            '-log10 pvalue',
+        ]
+    )
+    markers_df.to_csv(output_tsv, sep='\t')
+
 
 input_file = snakemake.input[0]
 output_file = snakemake.output.zarr
@@ -26,6 +47,9 @@ sample_key = snakemake.params.sample
 layer = snakemake.params.layer
 args = snakemake.params.get('args', {})
 pseudobulk = not sample_key is None
+min_groups_size = snakemake.params.get('min_groups_size', 10)
+min_cells = snakemake.params.get('min_cells', 100)
+key = f'marker_genes_group={group_key}'
 
 # determine how to read the data
 obs_cols = [group_key, sample_key] if pseudobulk else [group_key]
@@ -47,8 +71,18 @@ adata = read_anndata(
 )
 logging.info(adata.__str__())
 
+if adata.n_obs <= min_cells:
+    logging.info('Too few cells in object, skipping marker genes')
+    write_empty(adata, output_file, output_tsv)
+    exit(0)
+
 if 'feature_name' in adata.var.columns:
     adata.var_names = adata.var['feature_name'].astype(str)
+
+duplicated = adata.var_names.duplicated(keep='first')
+if duplicated.any():
+    adata = adata[:, ~duplicated].copy()
+
 
 # logging.info('Subset highly variable genes...')
 # adata, _ = subset_hvg(adata, var_column='highly_variable')
@@ -66,10 +100,15 @@ if pseudobulk:
 
 # filter groups with more than 1 observation
 groups_counts = adata.obs[group_key].value_counts()
-groups = groups_counts[groups_counts > 1].index.tolist()
+groups = groups_counts[groups_counts >= min_groups_size].index.tolist()
+logging.info(groups_counts[groups])
+
+if not groups:
+    logging.info('No groups large enough for testing, writing empty output')
+    write_empty(adata, output_file, output_tsv)
+    exit(0)
 
 logging.info(f'Running marker genes analysis for {group_key} and args={args}...')
-key = f'marker_genes_group={group_key}'
 rank_gene_func(
     adata,
     groupby=group_key,
@@ -84,14 +123,7 @@ logging.info(f'Writing {output_file}...')
 if input_file.endswith('.h5ad'):
     logging.info('Retrieving original data from h5ad...')
     new_uns = adata.uns[key]
-    adata = read_anndata(
-        input_file,
-        X='X',
-        obs='obs',
-        var='var',
-        dask=True,
-        backed=True,
-    )
+    adata = read_anndata(input_file, dask=True, backed=True)
     adata.uns[key] = new_uns
 write_zarr_linked(
     adata,
