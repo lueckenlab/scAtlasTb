@@ -14,6 +14,8 @@ from pandas.api.types import is_numeric_dtype
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage
 
+plt.rcParams["svg.fonttype"] = "none"
+
 """Compute and visualize Theil's U association matrices for AnnData obs covariates.
 
 This script performs three high-level steps:
@@ -253,10 +255,16 @@ class ClustermapConfig:
     show_barplot: bool = True
     nan_color: str = "#d9d9d9"
     layout_left: float = 0.06
-    layout_right: float = 0.86
+    layout_right: float = 0.98
     layout_bottom: float = 0.10
-    layout_top: float = 0.92
+    layout_top: float = 0.95
     layout_gap: float = 0.012
+    title_y: float = 0.975
+    title_gap: float = 0.015
+    cbar_width: float = 0.018
+    cbar_gap: float = 0.02
+    cbar_height_scale: float = 0.55
+    outer_right_margin: float = 0.015
     bar_panel_width_scale: float = 1.5
     dendrogram_height_scale: float = 0.7
     dendrogram_min_height: float = 0.04
@@ -372,6 +380,7 @@ class ClustermapPlotter:
             ha='center',
             va='bottom',
             fontsize=self._fontsize,
+            labelpad=8,
         )
 
     def _get_right_label_margin(self) -> float:
@@ -390,6 +399,23 @@ class ClustermapPlotter:
 
         max_label_w = max(lab.get_window_extent(renderer=renderer).width for lab in yticklabels)
         return max_label_w / fig_w_px + 0.03
+
+    def _get_bottom_label_margin(self) -> float:
+        """Estimate required figure margin for rotated x tick labels.
+
+        Returns:
+            Fractional figure height to reserve below the heatmap.
+        """
+        self._fig.canvas.draw()
+        renderer = self._fig.canvas.get_renderer()
+        xticklabels = [lab for lab in self._heatmap_ax.get_xticklabels() if lab.get_visible()]
+
+        fig_h_px = self._fig.get_size_inches()[1] * self._fig.dpi
+        if not xticklabels or fig_h_px <= 0:
+            return self.config.layout_bottom
+
+        max_label_h = max(lab.get_window_extent(renderer=renderer).height for lab in xticklabels)
+        return max(self.config.layout_bottom, max_label_h / fig_h_px + 0.02)
 
     def _get_row_fraction(self, row_ax: Axes) -> float:
         """Derive row-panel width share from seaborn layout and config scaling.
@@ -446,10 +472,10 @@ class ClustermapPlotter:
             self._apply_clustermap_layout()
         
         # Avoid tight_layout for clustermap: it can distort seaborn's custom axis geometry.
-        self._fig.suptitle(title, y=0.985, fontsize=self._title_fontsize)
+        self._fig.suptitle(title, y=self.config.title_y, fontsize=self._title_fontsize)
         if self._clustermap is None:
             self._fig.tight_layout(rect=(0, 0, 1, 0.95))
-        plt.savefig(output_path, dpi=self.config.dpi, bbox_inches='tight', pad_inches=0.2)
+        plt.savefig(output_path, dpi=self.config.dpi, pad_inches=0.2, bbox_inches='tight')
         plt.close(self._fig)
     
     def _calculate_plot_parameters(self) -> None:
@@ -509,30 +535,30 @@ class ClustermapPlotter:
         cbar_ax = self._clustermap.cax
 
         right_label_margin = self._get_right_label_margin()
-
-        # Reserve dedicated space for right-side y labels and colorbar.
-        cbar_w = 0.016
-        cbar_gap = 0.03
-        right_outer_margin = 0.01
-        total_right_reserve = right_label_margin + cbar_gap + cbar_w + right_outer_margin
+        bottom_label_margin = self._get_bottom_label_margin()
 
         left = self.config.layout_left
-        right = min(self.config.layout_right, 1 - total_right_reserve)
-        bottom = self.config.layout_bottom
-        top = self.config.layout_top
+        right = self.config.layout_right
+        bottom = bottom_label_margin
+        top = min(self.config.layout_top, self.config.title_y - self.config.title_gap)
         gap = self.config.layout_gap
+        cbar_w = self.config.cbar_width
+        cbar_gap = self.config.cbar_gap
+        right_outer_margin = self.config.outer_right_margin
 
-        # Keep a sensible minimum drawing area for axes.
-        right = max(right, left + 0.35)
+        # Keep the colorbar inside the figure and reserve label space between it and the heatmap.
+        cbar_x = right - right_outer_margin - cbar_w
+        content_right = cbar_x - cbar_gap - right_label_margin
+        content_right = max(content_right, left + 0.35)
 
         # Preserve relative width allocated by seaborn between row panel and heatmap.
         row_fraction = self._get_row_fraction(row_ax)
 
-        total_w = right - left
+        total_w = content_right - left
         row_w = total_w * row_fraction
         available_heatmap_w = total_w - row_w - gap
 
-        # Keep dendrogram compact and reserve vertical space for title.
+        # Keep dendrogram compact and reserve only a narrow band for the title.
         total_h = top - bottom
         dendrogram_h = self._get_dendrogram_height(total_h)
         available_heatmap_h = total_h - dendrogram_h - gap
@@ -541,9 +567,9 @@ class ClustermapPlotter:
         heatmap_side = min(available_heatmap_w, available_heatmap_h)
 
         used_w = row_w + gap + heatmap_side
-        x_offset = (total_w - used_w) / 2
-        block_h = heatmap_side + gap + dendrogram_h
-        y_offset = (total_h - block_h) / 2
+        x_offset = max(0.0, (total_w - used_w) / 2)
+        used_h = heatmap_side + gap + dendrogram_h
+        y_offset = max(0.0, (total_h - used_h) / 2)
 
         row_x = left + x_offset
         heatmap_x = row_x + row_w + gap
@@ -553,9 +579,8 @@ class ClustermapPlotter:
         self._heatmap_ax.set_position([heatmap_x, heatmap_y, heatmap_side, heatmap_side])
         col_ax.set_position([heatmap_x, heatmap_y + heatmap_side + gap, heatmap_side, dendrogram_h])
 
-        # Place colorbar on the far right, separated from right-side y tick labels.
-        cbar_x = right + right_label_margin + cbar_gap
-        cbar_h = heatmap_side * 0.40
+        # Vertically center the colorbar next to the square heatmap while keeping it inside the figure.
+        cbar_h = min(heatmap_side, max(0.18, heatmap_side * self.config.cbar_height_scale))
         cbar_y = heatmap_y + (heatmap_side - cbar_h) / 2
         cbar_ax.set_position([cbar_x, cbar_y, cbar_w, cbar_h])
         self._style_colorbar_label(cbar_ax)
@@ -625,17 +650,16 @@ class ClustermapPlotter:
     def _configure_heatmap_axis(self) -> None:
         """Apply consistent tick label rotation and font sizing for heatmap axes."""
         self._heatmap_ax.set_ylabel('')
-        self._heatmap_ax.set_xticklabels(
-            self._heatmap_ax.get_xticklabels(),
-            rotation=90,
-            ha='right',
-            fontsize=self._fontsize
-        )
-        self._heatmap_ax.set_yticklabels(
-            self._heatmap_ax.get_yticklabels(),
-            rotation=0,
-            fontsize=self._fontsize
-        )
+        self._heatmap_ax.tick_params(axis='x', labelrotation=90, labelsize=self._fontsize, pad=2)
+        self._heatmap_ax.tick_params(axis='y', labelrotation=0, labelsize=self._fontsize)
+
+        for label in self._heatmap_ax.get_xticklabels():
+            label.set_ha('center')
+            label.set_va('top')
+
+        for label in self._heatmap_ax.get_yticklabels():
+            label.set_rotation(0)
+            label.set_fontsize(self._fontsize)
 
 
 # ============================================================================
