@@ -15,12 +15,14 @@ use rule normalize from preprocessing as preprocessing_normalize with:
     conda:
         lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=mcfg.get_profile(w) == 'cpu')
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='mem_mb',attempt=attempt, factor=1),
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_normalized.tsv'
 
 
 use rule filter_genes from preprocessing as preprocessing_filter_genes with:
@@ -32,13 +34,14 @@ use rule filter_genes from preprocessing as preprocessing_filter_genes with:
         dask=lambda wildcards: mcfg.get_from_parameters(wildcards, 'dask', default=True),
         args=lambda wildcards: mcfg.get_from_parameters(wildcards, 'filter', default=dict(min_cells=1)),
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='mem_mb',attempt=attempt, factor=1),
-
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_filtered_genes.tsv'
 
 use rule highly_variable_genes from preprocessing as preprocessing_highly_variable_genes with:
     input:
@@ -51,12 +54,14 @@ use rule highly_variable_genes from preprocessing as preprocessing_highly_variab
     conda:
         lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=mcfg.get_profile(w) == 'cpu')
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='mem_mb',attempt=attempt, factor=1),
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_hvg--{hvg_args}.tsv'
 
 
 use rule extra_hvgs from preprocessing as preprocessing_extra_hvgs with:
@@ -72,12 +77,14 @@ use rule extra_hvgs from preprocessing as preprocessing_extra_hvgs with:
     conda:
         lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=mcfg.get_profile(w) == 'cpu')
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w),resource_key='mem_mb',attempt=attempt, factor=1),
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_extra_hvgs--{overwrite_args}.tsv'
 
 
 use rule pca from preprocessing as preprocessing_pca with:
@@ -96,12 +103,14 @@ use rule pca from preprocessing as preprocessing_pca with:
     conda:
         lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=mcfg.get_profile(w, default='gpu') == 'cpu')
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='mem_mb',attempt=attempt, factor=1),
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_pca.tsv'
 
 
 use rule neighbors from preprocessing as preprocessing_neighbors with:
@@ -112,7 +121,7 @@ use rule neighbors from preprocessing as preprocessing_neighbors with:
     params:
         args=lambda wildcards: mcfg.get_from_parameters(wildcards, 'neighbors', default={}),
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     conda:
         lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=mcfg.get_profile(w, default='gpu') == 'cpu')
     resources:
@@ -120,6 +129,8 @@ use rule neighbors from preprocessing as preprocessing_neighbors with:
         qos=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='mem_mb',attempt=attempt),
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_neighbors.tsv'
 
 
 use rule umap from preprocessing as preprocessing_umap with:
@@ -133,12 +144,14 @@ use rule umap from preprocessing as preprocessing_umap with:
     conda:
         lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=mcfg.get_profile(w, default='gpu') == 'cpu')
     threads:
-        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=10)
+        lambda wildcards: mcfg.get_from_parameters(wildcards, 'n_threads', default=4)
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='qos',attempt=attempt),
         gpu=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='gpu',attempt=attempt),
         mem_mb=lambda w, attempt: mcfg.get_resource(profile=mcfg.get_profile(w, default='gpu'),resource_key='mem_mb',attempt=attempt),
+    benchmark:
+        mcfg.out_dir / 'preprocessed' / paramspace.wildcard_pattern / '.benchmark_umap.tsv'
 
 
 def collect_files(wildcards):
@@ -184,6 +197,10 @@ use rule assemble from preprocessing as preprocessing_assemble with:
 
 
 rule assemble_all:
+    message:
+        """
+        Collect all preprocessing output for all datasets and methods
+        """
     input:
         assemble_input=[
             file for dataset in mcfg.get_datasets()

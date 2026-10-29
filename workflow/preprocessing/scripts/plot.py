@@ -15,10 +15,11 @@ from pprint import pformat
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-from utils.io import read_anndata, get_file_reader
+from utils.io import read_anndata, get_file_reader, check_slot_exists
 from utils.misc import ensure_dense, remove_outliers, dask_compute
 from utils.accessors import parse_gene_names
 
+plt.rcParams["svg.fonttype"] = "none"
 
 input_file = snakemake.input[0]
 output_dir = Path(snakemake.output.plots)
@@ -28,6 +29,8 @@ params = dict(snakemake.params.items())
 basis = params.pop('basis', 'X_umap')
 gene_chunk_size = params.pop('gene_chunk_size', 12)
 plot_centroids = params.pop('plot_centroids', [])
+max_label_length = params.pop('max_label_length', 10)
+dpi = params.pop('dpi', 150)
 
 wildcards_string = '\n'.join([f'{k}: {v}' for k, v in snakemake.wildcards.items()])
 logging.info(f'Wildcard string: {wildcards_string}')
@@ -38,6 +41,8 @@ kwargs = dict(
     obsm='obsm',
     var='var',
 )
+if 'pca' in str(basis).lower(): # and check_slot_exists(f'{input_file}/uns', 'pca'):
+    kwargs['uns'] = 'uns'
 
 # check if .X exists
 read_func, _ = get_file_reader(input_file)
@@ -132,7 +137,7 @@ if adata.is_view:
     adata = adata.copy()
 
 # set minimum point size
-min_size = 0.5 if adata.n_obs > 500_000 else 1
+min_size = 1 # if adata.n_obs > 500_000 else 1
 default_size = max(min_size, 200_000 / adata.n_obs)
 size = params.get('size', default_size)
 if size is None:
@@ -229,6 +234,27 @@ def add_group_sizes_to_legend(legend, adata, color, label_formatter=None):
             text.set_text(f"{prefix} (n={count})")
 
 
+def annotate_pca_axis_variance(ax, adata, basis):
+    """Show explained variance on axes for PCA embeddings when available."""
+    if 'pca' not in str(basis).lower():
+        return
+
+    variance_ratio = adata.uns.get('pca', {}).get('variance_ratio')
+    if variance_ratio is None or len(variance_ratio) < 2:
+        return
+
+    logging.info(f'Annotate PCA axes with variance ratio: {variance_ratio[:2]}')
+    ax.set_xlabel(f'PC1 ({variance_ratio[0] * 100:.1f}% var)')
+    ax.set_ylabel(f'PC2 ({variance_ratio[1] * 100:.1f}% var)')
+
+    ax.set_axis_on()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(True)
+    ax.spines['bottom'].set_visible(True)
+    ax.tick_params(top=False, right=False)
+
+
 def plot_color(
     adata,
     color,
@@ -239,6 +265,8 @@ def plot_color(
     file_name=None,
     title='',
     output_dir=Path(),
+    max_label_length=10,
+    dpi=200,
     **kwargs
 ):
 
@@ -255,9 +283,9 @@ def plot_color(
         vector_friendly=True,
         fontsize=9,
         figsize=(6,6),
-        dpi=200,
-        dpi_save=200,
-        format='png',
+        dpi=dpi,
+        dpi_save=dpi,
+        format='svg',
     )
     
     if len(colors) > 4:
@@ -298,6 +326,7 @@ def plot_color(
             show=False,
             return_fig=True,
             palette=palette,
+            frameon='pca' in str(basis).lower(),
             **kwargs,
         )
         suptitle_text = f'{title}\nn={n_cells}'
@@ -306,6 +335,7 @@ def plot_color(
 
         # fix legend
         ax = fig.get_axes()[0]
+        annotate_pca_axis_variance(ax=ax, adata=adata, basis=basis)
         legend = ax.get_legend()
 
         if palette == 'turbo':
@@ -316,7 +346,7 @@ def plot_color(
         elif legend and plot_centroids:
             categories = [cat for cat in adata.obs[color].cat.categories if cat in adata.obs[color].unique()]
             category_numbers = {
-                cat: idx + 1 if len(str(cat)) > 3 else cat
+                cat: idx + 1 if len(str(cat)) > max_label_length else cat
                 for idx, cat in enumerate(categories)
             }
             fontsize = kwargs.get('legend_fontsize', 10)
@@ -353,7 +383,7 @@ def plot_color(
         logging.error(f'Failed to plot "{file_name}": {e}')
         plt.plot([])
     
-    out_path = output_dir / f'{file_name}.png'
+    out_path = output_dir / f'{file_name}.svg'
     
     try:        
         plt.savefig(out_path, bbox_inches='tight')
@@ -376,6 +406,7 @@ list(tqdm(
         **params,
         title=wildcards_string,
         file_name=color,
+        dpi=dpi,
         output_dir=output_dir,
     ) for color in colors),
     desc="Plotting colors",
@@ -399,6 +430,7 @@ if gene_colors:
             **params,
             title=wildcards_string,
             file_name=title,
+            dpi=dpi,
             output_dir=output_dir,
         ) for title, color in gene_colors.items()),
         desc="Plotting genes",
