@@ -135,6 +135,13 @@ if 'barcode' not in adata.obs.columns:
     adata.obs['barcode'] = adata.obs_names
 adata.obs_names = adata.obs[['barcode', 'tech_id']].astype(str).agg('-'.join, axis=1)
 
+if 'barcode_old' not in adata.obs.columns:
+    if adata.obs['barcode'].is_duplicate().sum() > adata.n_obs / 4:
+        logging.warning('More than 25% of barcodes are duplicated, not saving old barcodes')
+        adata.obs['barcode_old'] = adata.obs_names
+    else:
+        adata.obs['barcode_old'] = adata.obs['barcode']
+
 # schemas translation
 schemas_df = pd.read_table(schema_file).dropna()
 logging.info(schemas_df)

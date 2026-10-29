@@ -73,6 +73,7 @@ include: 'rules/plots.smk'
 
 
 rule all:
+    message: "Collecting all QC outputs"
     input:
         rules.autoqc_all.input,
         rules.thresholds_all.input,
