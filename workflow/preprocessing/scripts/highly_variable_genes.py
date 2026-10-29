@@ -1,13 +1,12 @@
 """
 Highly variable gene selection with Scanpy
 """
-from pathlib import Path
 import logging
 logging.basicConfig(level=logging.INFO)
+import time
 import warnings
 warnings.filterwarnings("ignore", message="The frame.append method is deprecated and will be removed from pandas in a future version.")
 import anndata as ad
-from dask import array as da
 from dask import config as da_config
 da_config.set(num_workers=snakemake.threads)
 from pprint import pformat
@@ -18,25 +17,30 @@ from utils.processing import sc, USE_GPU
 
 input_file = snakemake.input[0]
 output_file = snakemake.output[0]
-args = snakemake.params.get('args', {})
+args = snakemake.params.get('args') or {}
 
-if args is None:
-    args = {}
-elif isinstance(args, dict):
+if isinstance(args, dict):
     args.pop('subset', None) # don't support subsetting
+
+run_hvg = args is not False
+hvg_args = dict(args) if isinstance(args, dict) else {}
+
+
+def _log_timing(start_ts, step):
+    elapsed = time.perf_counter() - start_ts
+    logging.info(f'{step} finished in {elapsed:.2f}s')
 
 logging.info(f'HVG args:\n{pformat(args)}')
 
 dask = snakemake.params.get('dask', True) # get global dask flag
-if isinstance(args, dict):
-    dask = args.pop('dask', dask) # overwrite with hvg-specific dask flag
+dask = hvg_args.pop('dask', dask) # overwrite with hvg-specific dask flag
 
-logging.info(f'args: {args}')
-logging.info(f'dask: {dask}')
+logging.info('args: %s', args)
+logging.info('dask: %s', dask)
 
-logging.info(f'Read {input_file}...')
+logging.info('Read %s...', input_file)
 layer = 'layers/normcounts'
-if args and args.get('flavor') == 'seurat_v3':
+if hvg_args.get('flavor') == 'seurat_v3':
     layer = 'layers/counts'
 adata = read_anndata(
     input_file,
@@ -44,10 +48,10 @@ adata = read_anndata(
     obs='obs',
     var='var',
     uns='uns',
-    backed=dask,
-    dask=dask,
+    backed=True,
+    dask=True,
 )
-logging.info(adata.__str__())
+logging.info('%s', adata)
 var = adata.var.copy()
 
 # add metadata
@@ -62,62 +66,92 @@ for col in list(var.columns):
 
 # Determine HVG column name based on args (use parameter hash in filename as suffix)
 hvg_column_name = 'highly_variable'
-if isinstance(args, dict):
-    for key in sorted(args.keys()):
-        hvg_column_name += f'-{key}={args[key]}'
+for key in sorted(hvg_args.keys()):
+    hvg_column_name += f'-{key}={hvg_args[key]}'
 
-if adata.n_obs == 0:
-    logging.info('No data, write empty file...')
-    adata.var[hvg_column_name] = True
-    adata.var['highly_variable'] = True
-    adata.write_zarr(output_file)
-    exit(0)
 
-if args == False:
-    logging.info('No highly variable gene parameters provided, including all genes...')
-    var['highly_variable'] = True
-else:
-    min_cells = args.pop('min_cells', max(args.get('n_bins', 20), 200))
+def _write_empty_output(adata_obj, message, linked):
+    logging.info(message)
+    target_var = var if linked else adata_obj.var
+    target_var[hvg_column_name] = True
+    target_var['highly_variable'] = True
 
-    # filter genes and cells that would break HVG function
-    batch_mask = _filter_batch(
-        adata,
-        batch_key=args.get('batch_key'),
-        min_cells=min_cells,
-    )
-    adata = adata[batch_mask, adata.var['nonzero_genes']].copy()
-    
-    # Handle case where filtering resulted in empty data
-    if adata.n_obs == 0:
-        logging.info('No data after filtering, write empty file...')
-        var[hvg_column_name] = True
-        var['highly_variable'] = True
-        adata = ad.AnnData(var=var, uns=adata.uns)
+    if linked:
+        empty_adata = ad.AnnData(var=var, uns=adata_obj.uns)
         write_zarr_linked(
-            adata,
+            empty_adata,
             in_dir=input_file,
             out_dir=output_file,
             files_to_keep=['uns', 'var']
         )
-        exit(0)
+    else:
+        adata_obj.write_zarr(output_file)
+
+    raise SystemExit(0)
+
+
+if adata.n_obs == 0:
+    _write_empty_output(adata, 'No data, write empty file...', linked=False)
+
+if not run_hvg:
+    logging.info('No highly variable gene parameters provided, including all genes...')
+    var['highly_variable'] = True
+else:
+    batch_key = hvg_args.get('batch_key')
+    min_cells = hvg_args.pop('min_cells', max(hvg_args.get('n_bins', 20), 200))
+    large_batch_threshold = int(hvg_args.pop('large_batch_threshold', 20))
+    persist_dask = hvg_args.pop('persist_dask', dask)
+
+    # filter genes and cells that would break HVG function
+    t0 = time.perf_counter()
+    batch_mask = _filter_batch(
+        adata,
+        batch_key=batch_key,
+        min_cells=min_cells,
+    )
+    adata = adata[batch_mask, adata.var['nonzero_genes']].copy()
+    _log_timing(t0, 'Batch/cell filtering')
     
-    # Keep batches contiguous for count-based operations (after filtering for efficiency).
-    batch_key = args.get('batch_key') if isinstance(args, dict) else None
-    if batch_key in adata.obs.columns:
-        adata.obs_names_make_unique()
-        adata = adata[adata.obs.sort_values(batch_key, kind='stable').index].copy()
+    # Handle case where filtering resulted in empty data
+    if adata.n_obs == 0:
+        _write_empty_output(adata, 'No data after filtering, write empty file...', linked=True)
     
-    # Persist dask arrays to reset task graph before expensive HVG computation.
+    # Gather batch metadata for heuristics/logging.
+    n_batches = adata.obs[batch_key].nunique() if batch_key in adata.obs.columns else 0
+    logging.info(f'Filtered data shape: n_obs={adata.n_obs}, n_vars={adata.n_vars}, n_batches={n_batches}')
+
+    # For many batches, dask task overhead commonly dominates HVG runtime.
+    if dask and n_batches >= large_batch_threshold:
+        logging.info(
+            'Detected many batches (n_batches=%s >= %s); switching to in-memory compute for HVG.',
+            n_batches,
+            large_batch_threshold,
+        )
+        dask = False
+    
     if dask:
-        logging.info('Persist dask arrays before HVG computation...')
-        adata.X = adata.X.rechunk((200_000, -1)).persist()
+        logging.info('Dask HVG path: persist_dask=%s', persist_dask)
+        t0 = time.perf_counter()
+        if persist_dask:
+            adata.X = adata.X.persist()
+        _log_timing(t0, 'Dask preparation')
+    else:
+        logging.info('Compute X before HVG computation...')
+        t0 = time.perf_counter()
+        adata.X = adata.X.compute()
+        _log_timing(t0, 'Compute X')
     
     # make sure data is on GPU for rapids_singlecell
     if USE_GPU:
+        logging.info('Move data to GPU for RAPIDS SingleCell...')
+        t0 = time.perf_counter()
         sc.get.anndata_to_GPU(adata)
+        _log_timing(t0, 'Move data to GPU')
     
-    logging.info(f'Select features with arguments: {args}...')
-    sc.pp.highly_variable_genes(adata, **args)
+    logging.info('Select features with arguments: %s...', hvg_args)
+    t0 = time.perf_counter()
+    sc.pp.highly_variable_genes(adata, **hvg_args)
+    _log_timing(t0, 'HVG computation')
 
     # add HVG info back to adata
     hvg_column_map = {
@@ -139,12 +173,11 @@ else:
 # rename highly_variable column
 var[hvg_column_name] = var['highly_variable']
 
-logging.info(f'Write to {output_file}...')
-files_to_keep = ['uns', 'var']
+logging.info('Write to %s...', output_file)
 adata = ad.AnnData(var=var, uns=adata.uns)
 write_zarr_linked(
     adata,
     in_dir=input_file,
     out_dir=output_file,
-    files_to_keep=files_to_keep
+    files_to_keep=['uns', 'var']
 )
