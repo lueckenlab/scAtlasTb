@@ -38,6 +38,10 @@ use rule * from common as common_ *
 
 
 rule collect:
+    message:
+        """
+        Collect {params.n_inputs} files for {wildcards}
+        """
     input:
         unpack(lambda wildcards: mcfg.get_input_files_per_dataset(dataset=wildcards.dataset))
     output:
@@ -48,6 +52,7 @@ rule collect:
         merge_slots=lambda wildcards: mcfg.get_from_parameters(wildcards, 'merge_slots', default=[]),
         skip_slots=lambda wildcards: mcfg.get_from_parameters(wildcards, 'skip_slots', default=[]),
         obs_index_col=lambda wildcards: mcfg.get_from_parameters(wildcards, 'obs_index_col', default={}),
+        n_inputs=lambda wildcards: len(mcfg.get_input_files_per_dataset(dataset=wildcards.dataset)),
     conda:
         get_env(config, 'scanpy', env_dir='envs')
     resources:

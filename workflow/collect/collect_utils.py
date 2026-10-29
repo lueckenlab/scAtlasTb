@@ -6,20 +6,20 @@ from pprint import pformat
 LARGE_SLOTS = ['layers', 'obsm', 'obsp']
 
 
-def check_obs_same_index(adatas):
-    iterator = iter(adatas.items())
-    key1, _ad1 = next(iterator)
+def check_same_index(dfs: dict):
+    iterator = iter(dfs.items())
+    key1, df1 = next(iterator)
     
-    for key, _ad in iterator:
+    for key, df in iterator:
         if key == key1:
             continue
-        diff = _ad.obs_names.difference(_ad1.obs_names)
+        diff = df.index.difference(df1.index)
         assert len(diff) == 0, \
             f'Index must be the same\n {len(diff)} differing indices \
-            when comparing {key} against {key}\n' 
+            when comparing {key} against {key1}\n' 
 
 
-def check_columns_equal(adatas, col):
+def check_columns_equal(dfs: dict, col: str):
     def _check_columns_equal(s1, s2, col):
         assert s1.index.equals(s2.index), \
             f'Indices do not match for column comparison: {col}'
@@ -34,58 +34,78 @@ def check_columns_equal(adatas, col):
         # Fallback to pandas equals
         return s1.equals(s2)
 
-    iterator = iter(adatas.values())
-    _ad1 = next(iterator)
-    if all(_check_columns_equal(_ad.obs[col], _ad1.obs[col], col) for _ad in iterator):
+    iterator = iter(dfs.values())
+    df1 = next(iterator)
+    if all(_check_columns_equal(df[col], df1[col], col) for df in iterator):
         return []
     return [col]
 
 
-def get_same_columns(adatas, n_threads=1):
-    check_obs_same_index(adatas)
+def get_same_columns(dfs: dict, n_threads=1):
+    check_same_index(dfs)
 
-    # collect obs columns that exist in all files
-    iterator = iter(adatas.values())
-    _ad1 = next(iterator)
-    same_obs_columns = set(
-        _ad1.obs.columns.tolist()
+    # collect columns that exist in all files
+    iterator = iter(dfs.values())
+    df1 = next(iterator)
+    same_columns = set(
+        df1.columns.tolist()
     ).intersection(
-        *[_ad.obs.columns.tolist() for _ad in iterator]
+        *[df.columns.tolist() for df in iterator]
     )
     
     # determine which columns do not have the same values across all files
-    obs_to_remove = []
-    for col in tqdm(same_obs_columns, desc='Check for equal columns'):
-        obs_to_remove.extend(check_columns_equal(adatas, col))
+    cols_to_remove = []
+    for col in tqdm(same_columns, desc='Check for equal columns'):
+        cols_to_remove.extend(check_columns_equal(dfs, col))
     
-    # from concurrent.futures import ThreadPoolExecutor, as_completed
-    # with ThreadPoolExecutor(max_workers=n_threads) as executor, \
-    #     tqdm(total=len(same_obs_columns), desc='Check for equal columns') as pbar:
-    #     futures = [
-    #         executor.submit(check_columns_equal, adatas=adatas, col=col)
-    #         for col in same_obs_columns
-    #     ]
-    #     for future in as_completed(futures):
-    #         obs_to_remove.extend(future.result())
-    #         pbar.update(1)
+    print(f'Shared columns that are not the same across datasets:\n{pformat(cols_to_remove)}', flush=True)
+    return [col for col in same_columns if col not in cols_to_remove]
 
-    print(f'Shared columns that are not the same across datasets:\n{pformat(obs_to_remove)}', flush=True)
-    return [col for col in same_obs_columns if col not in obs_to_remove]
+
+def analyze_slot_columns(dfs_dict, n_threads=1):
+    same = set(get_same_columns(dfs_dict, n_threads=n_threads))
+    multicol = {
+        col
+        for col, count in (
+            pd.Series(
+                [col for df in dfs_dict.values() for col in df.columns]
+            )
+            .loc[lambda s: ~s.isin(same)]
+            .value_counts()
+            .items()
+        )
+        if count > 1
+    }
+    return {'same': same, 'multicol': multicol}
 
 
 def merge_df(
     df_current,
     file_id,
     df_previous,
-    same_columns,
+    column_suffix_map=None,
     sep='_',
 ):
+    """Merge dataframes, adding suffix only to columns that appear in multiple files.
+    
+    Parameters
+    ----------
+    column_suffix_map : dict, optional
+        'same': set of columns identical across all files (excluded)
+        'multicol': set of columns needing suffix
+    """
+    if column_suffix_map is None:
+        column_suffix_map = {'same': set(), 'multicol': set()}
+    
+    same_cols = column_suffix_map.get('same', set())
+    multicol_cols = column_suffix_map.get('multicol', set())
+    
     if df_previous is None:
         return df_current.rename(
             columns={
                 col: f'{col}{sep}{file_id}'
                 for col in df_current.columns.tolist()
-                if col not in same_columns
+                if col not in same_cols and col in multicol_cols
             }
         )
     
@@ -94,58 +114,59 @@ def merge_df(
     assert n_diff == 0, \
         f'Index must be the same\n {n_diff} differing indices: {idx_diff}\n' \
         f'current index: {df_current.index.sort_values()} \nprevious index: {df_previous.index.sort_values()}'
-    unique_columns = [col for col in df_current.columns if col not in same_columns]
+    
+    unique_columns = [col for col in df_current.columns if col not in same_cols]
     df_current = df_current[unique_columns].rename(
-        columns={col: f'{col}{sep}{file_id}' for col in unique_columns}
+        columns={
+            col: f'{col}{sep}{file_id}' 
+            for col in unique_columns 
+            if col in multicol_cols
+        }
     )
     df = pd.concat([df_previous, df_current], axis=1)
     return df
 
 
+def _reload_large_slots(adata, file_path, large_merge_slots):
+    """Reload large slots from disk to avoid view-based chained operations."""
+    from utils.io import read_anndata
+    adata_tmp = read_anndata(
+        file_path,
+        **{slot: slot for slot in large_merge_slots},
+        dask=True,
+        backed=True,
+        verbose=False
+    )
+    for slot in large_merge_slots:
+        setattr(adata, f'_{slot}', getattr(adata_tmp, f'_{slot}'))
+
+
 def align_file_indices(adatas, files, merge_slots):
     """
-    Align per-file AnnData object indices (obs_names and var_names) to match a reference AnnData,
-    reloading large data containers only when a reordering is actually required.
-    This function mutates the provided `adatas` mapping in-place:
-    - Any AnnData whose obs_names or var_names differ only in order from the reference (`first_adata`)
-        is reordered to match the reference.
-    - Large data slots (e.g. layers / X-like backed attributes listed in the global LARGE_SLOTS)
-        are reloaded from disk before reordering to avoid creating expensive view-based chained operations.
-    - Views produced by subsetting are converted to real copies to ensure subsequent safe mutation.
-    If an AnnData has a true mismatch in obs_names or var_names content (not just order),
-    a ValueError is raised.
+    Align AnnData objects to match reference: same obs_names, intersection of var_names.
+    
+    Reorders/subsets all adatas to match the first one's obs_names and the intersection
+    of all var_names. Reloads large slots (layers, obsm, obsp) from disk before subsetting
+    to avoid expensive view chains. Converts resulting views to copies.
+    
     Parameters
     ----------
-    adatas : dict[str, anndata.AnnData]
-            Mapping from file_id to AnnData. The first item is treated as the reference.
+    adatas : dict[str, AnnData]
+        Mapping from file_id to AnnData. First item is the reference.
     files : dict[str, str]
-            Mapping from file_id to file path on disk. Used to reload large slots via read_anndata.
+        Mapping from file_id to file path on disk.
     merge_slots : Iterable[str]
-            Collection of slot names requested for merging (e.g. {'X', 'layers', 'obsm'}); only those
-            intersecting LARGE_SLOTS are considered "large" for conditional reload.
+        Slot names to merge (e.g. {'X', 'layers', 'obsm'}).
+    
     Returns
     -------
     dict[str, list[str]]
-            A dictionary mapping each large slot name (subset of LARGE_SLOTS present in merge_slots)
-            to a list of file_ids for which that slot's data was reloaded and must later be rewritten
-            (e.g. when consolidating results). Empty lists indicate no reordering needed for that slot.
+        Maps large slot names to file_ids where data was reloaded from disk.
+    
     Raises
     ------
     ValueError
-            If any non-reference AnnData has obs_names or var_names whose set of values differs
-            from the reference (i.e. not just a permutation).
-    Side Effects
-    ------------
-    - Modifies entries of `adatas` in place (reordered indices, materialized copies).
-    - Reloads large slots from disk using `read_anndata` with dask=True, backed=True to minimize memory.
-    - Logs informational messages when reordering occurs.
-    Notes
-    -----
-    - The global LARGE_SLOTS must be defined elsewhere; typical values might include 'layers', 'X', etc.
-    - Only large slots actually requested in `merge_slots` are considered for reload.
-    - Reordering is performed via slicing: `_ad[first_obs_names, :]` and `[:, first_var_names]`.
-    - Ensuring slots are reloaded before reindexing avoids creating views that could lead to subtle bugs
-        when later writing or concatenating data.
+        If obs_names sets differ across files (permutation OK, different content not OK).
     """
     import logging
     from utils.io import read_anndata
@@ -158,58 +179,60 @@ def align_file_indices(adatas, files, merge_slots):
     large_merge_slots = [slot for slot in LARGE_SLOTS if slot in merge_slots]
     file_copy_map = {slot: [] for slot in large_merge_slots}
     
-    # Use iterator to skip first adata
+    # Compute intersection of var_names
+    var_intersection = set(first_adata.var_names)
+    remaining_adatas = []
+    for file_id, adata in adata_iter:
+        var_intersection &= set(adata.var_names)
+        remaining_adatas.append((file_id, adata))
     
-    for file_id, _ad in adata_iter:
-        file_name = files[file_id]
-        
-        # Handle obs_names alignment
-        if not _ad.obs_names.equals(first_obs_names):
-            if set(_ad.obs_names) != set(first_obs_names):
-                missing_in_ad = set(first_obs_names) - set(_ad.obs_names)
-                extra_in_ad = set(_ad.obs_names) - set(first_obs_names)
-                raise ValueError(
-                    f"obs_names mismatch between '{first_key}' and '{file_id}'.\n"
-                    f"Missing in '{file_id}': {len(missing_in_ad)} (e.g., {list(missing_in_ad)[:5]})\n"
-                    f"Extra in '{file_id}': {len(extra_in_ad)} (e.g., {list(extra_in_ad)[:5]})"
-                )
-            
-            # Reload large slots before reordering
-            _ad_tmp = read_anndata(
-                file_name,
-                **{slot: slot for slot in large_merge_slots}, 
-                dask=True,
-                backed=True,
-                verbose=False
-            )
+    # Subset first adata if var_names differ
+    if var_intersection != set(first_var_names):
+        logging.info(f"var_names differ. Keeping {len(var_intersection)} common vars.")
+        first_var_names = first_adata.var_names[first_adata.var_names.isin(var_intersection)]
+        if large_merge_slots:
+            _reload_large_slots(first_adata, files[first_key], large_merge_slots)
             for slot in large_merge_slots:
-                setattr(_ad, f'_{slot}', getattr(_ad_tmp, f'_{slot}'))
-                file_copy_map[slot].append(file_id)
-            
-            logging.info(f"Reordering obs_names for {file_id}")
-            adatas[file_id] = _ad[first_obs_names, :]
+                file_copy_map[slot].append(first_key)
+        adatas[first_key] = first_adata[:, first_var_names]
+    
+    # Align remaining adatas
+    for file_id, adata in remaining_adatas:
+        file_path = files[file_id]
+        modified = False
         
-        # Handle var_names alignment  
-        if not _ad.var_names.equals(first_var_names):
-            if set(_ad.var_names) != set(first_var_names):
-                raise ValueError(f"var_names mismatch between '{first_key}' and '{file_id}'")
-            
-            # Reload layers if needed
-            if 'layers' in merge_slots:
-                _ad.layers = read_anndata(
-                    file_name,
-                    layers='layers',
-                    dask=True,
-                    backed=True
-                ).layers
-                file_copy_map['layers'].append(file_id)
-            
-            logging.info(f"Reordering var_names for {file_id}")
-            adatas[file_id] = adatas[file_id][:, first_var_names]
+        # Check/reorder obs_names
+        if not adata.obs_names.equals(first_obs_names):
+            if set(adata.obs_names) != set(first_obs_names):
+                missing = set(first_obs_names) - set(adata.obs_names)
+                extra = set(adata.obs_names) - set(first_obs_names)
+                n_missing_examples = min(10, len(missing))
+                n_extra_examples = min(10, len(extra))
+                raise ValueError(
+                    f"obs_names mismatch in '{file_id}':\n"
+                    f"  Missing: {len(missing)} (e.g. {sorted(missing)[:n_missing_examples]})\n"
+                    f"  Extra: {len(extra)} (e.g. {sorted(extra)[:n_extra_examples]})\n"
+                )
+            if large_merge_slots:
+                _reload_large_slots(adata, file_path, large_merge_slots)
+                for slot in large_merge_slots:
+                    file_copy_map[slot].append(file_id)
+            logging.info(f"Reordering obs_names: {file_id}")
+            adata = adata[first_obs_names, :]
+            modified = True
         
-        # Convert views to copies
-        if adatas[file_id].is_view:
-            adatas[file_id] = adatas[file_id].copy()
+        # Subset var_names if needed
+        if not adata.var_names.equals(first_var_names):
+            if not modified and large_merge_slots:
+                _reload_large_slots(adata, file_path, large_merge_slots)
+                for slot in large_merge_slots:
+                    if file_id not in file_copy_map[slot]:
+                        file_copy_map[slot].append(file_id)
+            logging.info(f"Subsetting var_names: {file_id}")
+            adata = adata[:, first_var_names]
+            modified = True
+        
+        adatas[file_id] = adata if not modified or not adata.is_view else adata.copy()
     
     return file_copy_map
 
