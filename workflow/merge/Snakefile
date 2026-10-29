@@ -46,6 +46,10 @@ use rule * from common as common_ *
 
 
 rule merge:
+    message:
+        """
+        Merge {params.n_inputs} files for {wildcards}
+        """
     input:
         unpack(lambda wildcards: mcfg.get_input_files_per_dataset(dataset=wildcards.dataset))
     output:
@@ -61,6 +65,7 @@ rule merge:
         allow_duplicate_vars=lambda wildcards: mcfg.get_from_parameters(wildcards, 'allow_duplicate_vars', default=False),
         new_indices=lambda wildcards: mcfg.get_from_parameters(wildcards, 'new_indices', default=False),
         persist=lambda wildcards: mcfg.get_from_parameters(wildcards, 'persist', default=False),
+        n_inputs=lambda wildcards: len(mcfg.get_input_files_per_dataset(dataset=wildcards.dataset)),
     conda:
         get_env(config, 'scanpy', env_dir='envs')
     threads:
