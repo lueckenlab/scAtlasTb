@@ -1,0 +1,25 @@
+name: deg
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - anndata<=0.12
+  - scanpy<=1.12
+  - zarr<3
+  - pandas<3
+  - scipy<1.17
+  - r-base=4.5
+  - r-data.table
+  - r-dplyr
+  - r-tibble
+  - bioconductor-rhdf5
+  - bioconductor-zellkonverter
+  - bioconductor-anndatar
+  - bioconductor-edger
+  - bioconductor-limma
+  - bioconductor-variancepartition
+  - bioconductor-biocparallel
+  - pip
+  - pip:
+    - git+https://github.com/mumichae/scatlastb_utils.git
