@@ -100,8 +100,13 @@ def cell_cycle(
             adata_raw.obs.loc[batch_mask, 'S_score'] = ad_sub.obs['S_score']
             adata_raw.obs.loc[batch_mask, 'G2M_score'] = ad_sub.obs['G2M_score']
         except Exception as e:
+            msg = str(e).lower()
             print(f'Error in score_cell_cycle for batch={batch}, skipping\nError: {e}', flush=True)
             print(traceback.format_exc(), flush=True)
+            # If scoring failed because no cell cycle genes were found, abort and return NaN
+            if isinstance(e, ValueError) and ('no cell cycle' in msg or 'cell cycle genes' in msg or 'no genes' in msg):
+                print('No cell cycle genes found; aborting cell_cycle metric and returning NaN', flush=True)
+                return np.nan, 'Cell cycle conservation'
             adata_raw.obs.loc[batch_mask, 'S_score'] = 0
             adata_raw.obs.loc[batch_mask, 'G2M_score'] = 0
     

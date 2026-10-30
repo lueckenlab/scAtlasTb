@@ -57,7 +57,10 @@ rule run:
         use_covariate=lambda wildcards: mcfg.get_from_parameters(wildcards, 'use_covariate', default=False),
         use_gene_set=lambda wildcards: mcfg.get_from_parameters(wildcards, 'use_gene_set', default=False),
         covariates=lambda wildcards: mcfg.get_from_parameters(wildcards, 'covariate', default=[]),
-        gene_sets=lambda wildcards: mcfg.get_gene_sets(wildcards.dataset),
+        gene_sets=lambda wildcards:
+            mcfg.get_gene_sets(wildcards.dataset)
+            if mcfg.get_from_parameters(wildcards, 'use_gene_set', default=False)
+            else {},
         env=lambda wildcards: mcfg.get_from_parameters(wildcards, 'env', check_null=True, default=MetricNotDefinedError(wildcards)),
     conda:
         lambda wildcards, params: get_env(config, params.env)
@@ -68,7 +71,6 @@ rule run:
         qos=lambda w: mcfg.get_resource(resource_key='qos', profile=mcfg.get_profile(w)),
         mem_mb=lambda w, attempt: get_mem_mb(w, attempt),
         gpu=lambda w: mcfg.get_resource(resource_key='gpu', profile=mcfg.get_profile(w)),
-        time="1-08:00:00",
     script:
         '../scripts/run.py'
 
