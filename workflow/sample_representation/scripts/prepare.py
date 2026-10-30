@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO)
 
 from utils.io import read_anndata, write_zarr, write_zarr_linked, ALL_SLOTS
 from utils.misc import dask_compute
-from utils.processing import get_pseudobulks
+import scatlastb_utils as atl
 
 
 sc.set_figure_params(dpi=100, frameon=False)
@@ -30,7 +30,7 @@ adata = read_anndata(
     var='var',
     backed=dask,
     dask=dask,
-    stride=int(n_obs / 5),
+    stride=min(500_000, int(n_obs / 5)),
 )
 adata.obs_names_make_unique()
 
@@ -48,10 +48,11 @@ else:
             f'Available columns: {list(adata.obs.columns)}'
         )
     adata.obs['group'] = adata.obs[sample_key].astype(str).agg('-'.join, axis=1)
-    adata_bulk = get_pseudobulks(
+    adata_bulk = atl.pp.pseudobulk(
         adata,
         group_key='group',
         agg=aggregate,
+        use_legacy=True,
     )
 
 # preprocess pseudobulks
