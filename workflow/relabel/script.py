@@ -8,10 +8,23 @@ from dask import dataframe as dd
 from pprint import pformat
 from dask import config as da_config
 
-da_config.set(num_workers=snakemake.threads)
+n_threads = snakemake.threads
+da_config.set(num_workers=n_threads)
 logging.info(f"Dask using {da_config.get('num_workers')} workers")
 
 from utils.io import read_anndata, write_zarr_linked
+
+
+def make_unique_index(df, index_name):
+    if df.index.has_duplicates:
+        logging.warning(
+            f'Found {df.index.duplicated().sum()} duplicate entries in index "{index_name}";'
+             ' making unique by appending suffixes.'
+        )
+        counts = df.groupby(level=0).cumcount()
+        df.index = [f"{label}-{i}" if i > 0 else str(label) for label, i in zip(df.index, counts)]
+        df.index.name = index_name
+    return df
 
 
 def convert_dtypes(col):
@@ -65,6 +78,8 @@ def read_table(file, index_name, obs_names, usecols):
     
     if index_name in df.columns:
         df = df.set_index(index_name)
+        df = make_unique_index(df, index_name)
+    
     if df.index.name == index_name and index_name is not None:
         # make sure shape matches adata.obs
         index_old = df.index
@@ -79,6 +94,66 @@ def read_table(file, index_name, obs_names, usecols):
             )
     
     return df.apply(convert_dtypes)
+
+
+def _parse_merge_columns_config(merge_config, file_id):
+    required_cols = ['file_id', 'column_name', 'columns']
+
+    if merge_config is None:
+        return pd.DataFrame(columns=required_cols)
+
+    if isinstance(merge_config, list):
+        rows = merge_config
+    elif isinstance(merge_config, dict):
+        if 'entries' in merge_config:
+            rows = merge_config['entries']
+        elif set(required_cols).issubset(merge_config.keys()):
+            rows = [merge_config]
+        else:
+            rows = []
+            for col_name, cfg in merge_config.items():
+                if col_name in {'file', 'sep'}:
+                    continue
+                row = {'column_name': col_name}
+                if isinstance(cfg, dict):
+                    row |= cfg
+                else:
+                    row['columns'] = cfg
+                rows.append(row)
+    else:
+        raise ValueError(
+            'merge_columns must be one of: '
+            'TSV file config, list[dict], dict with entries, or dict keyed by output column.'
+        )
+
+    normalized_rows = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError(f'Each merge_columns entry must be a dictionary, got: {type(row)}')
+
+        out_col = row.get('column_name')
+        cols = row.get('columns')
+        row_file_id = row.get('file_id', file_id)
+
+        assert out_col is not None, f'"column_name" missing in merge_columns entry: {row}'
+        assert cols is not None, f'"columns" missing in merge_columns entry: {row}'
+
+        if isinstance(cols, str):
+            cols = [x.strip() for x in cols.split(',') if x.strip()]
+        elif isinstance(cols, (list, tuple)):
+            cols = [str(x).strip() for x in cols if str(x).strip()]
+        else:
+            raise ValueError(f'"columns" must be a comma-separated string or list, got: {type(cols)}')
+
+        normalized_rows.append(
+            {
+                'file_id': str(row_file_id),
+                'column_name': str(out_col),
+                'columns': ','.join(cols),
+            }
+        )
+
+    return pd.DataFrame(normalized_rows, columns=required_cols)
     
 
 input_file = snakemake.input.anndata
@@ -87,8 +162,10 @@ input_merge_cols = snakemake.input.get('merge_columns')
 output_file = snakemake.output.zarr
 file_id = snakemake.wildcards.file_id
 rename_columns = snakemake.params.get('rename_columns')
+merge_columns_config = snakemake.params.get('merge_columns_config')
 selective_update = snakemake.params.get('selective_update')
 rename_obsm_keys = snakemake.params.get('rename_obsm_keys')
+constant_columns = snakemake.params.get('constant_columns')
 dask = snakemake.params.get('dask', True)
 
 files_to_keep = ['obs']
@@ -102,15 +179,24 @@ if input_file.endswith(('.zarr', '.zarr/')):
 adata = read_anndata(input_file, **kwargs)
 logging.info(adata.__str__())
 
+# add constant columns
+if constant_columns:
+    assert isinstance(constant_columns, dict), 'constant_columns must be a dictionary'
+    logging.info(f'Add constant columns:\n{pformat(constant_columns)}')
+    for col_name, col_value in tqdm(constant_columns.items(), desc='Adding constant columns'):
+        adata.obs[col_name] = col_value
+        logging.info(f'Added column "{col_name}" with value: {col_value}')
+
 # merge new columns
 if rename_columns:
     assert isinstance(rename_columns, dict), 'rename_columns must be a dictionary'
     logging.info(f'Rename columns:\n{pformat(rename_columns)}')
     for old_col, new_col in tqdm(rename_columns.items(), desc='Renaming'):
         if old_col not in adata.obs.columns:
-            adata.obs[old_col] = 'nan'
-        else:
-            adata.obs[new_col] = adata.obs[old_col]
+            logging.warning(f'Column "{old_col}" not found in adata.obs. Skipping.')
+            logging.info(f'{new_col} already in adata.obs.columns: {new_col in adata.obs.columns}')
+            continue
+        adata.obs[new_col] = adata.obs[old_col]
 
 if rename_obsm_keys:
     assert isinstance(rename_obsm_keys, dict), 'rename_obsm_keys must be a dictionary'
@@ -124,14 +210,15 @@ if rename_obsm_keys:
 
 
 if input_new_cols:
-    index_col = snakemake.params.get('index_col', 'index')
+    index_col = snakemake.params.get('index_col')
     mapping_order = snakemake.params.get('mapping_order')
-    old_index_name = adata.obs.index.name or 'index'
+    mapping_order = list(dict.fromkeys(mapping_order))
+    obs_names = adata.obs_names # save copy to preserve index
 
     if index_col in adata.obs.columns:
         adata.obs[index_col] = adata.obs[index_col].astype(str)
         adata.obs = adata.obs.reset_index().set_index(index_col)
-    else:
+    elif index_col is not None:
         adata.obs_names.name = index_col
     
     logging.info(f'Read new columns from "{input_new_cols}" with index "{index_col}"...')
@@ -141,66 +228,78 @@ if input_new_cols:
         obs_names=adata.obs_names,
         usecols=mapping_order
     )
-    logging.info(f'\n{pformat(label_mapping)}')
-    
-    logging.info(f'Mapping order: {pformat(mapping_order)}')
-    label_key = None
-    
-    for mapping_label in tqdm(mapping_order, desc='Mapping new columns'):
-        
-        if label_key is None:
-            assert mapping_label in adata.obs.columns.tolist() + [index_col], \
-                f'"{mapping_label}" not found in adata.obs. ' \
-                'Please make sure the first entry in the mapping order is a column in adata.obs.'
-            label_key = mapping_label
-            continue        
-        
-        if label_key == index_col:
-            adata.obs[mapping_label] = label_mapping[mapping_label]
-            # Note: keep label_key as index
-            continue
-        
-        # get unique mapping
-        df = label_mapping[[label_key, mapping_label]].drop_duplicates()
-        
-        # remove trailing whitespaces
-        remove_trailing_whitespaces = lambda x: x.strip() if isinstance(x, str) else x
-        adata.obs[label_key] = adata.obs[label_key].apply(remove_trailing_whitespaces)
-        df[label_key] = df[label_key].apply(remove_trailing_whitespaces)
-        df[mapping_label] = df[mapping_label].apply(remove_trailing_whitespaces)
-        
-        # apply mapping
-        map_dict = df.set_index(label_key)[mapping_label].to_dict()
-        adata.obs[mapping_label] = pd.Series(adata.obs[label_key].map(map_dict), dtype="category")
-        
-        # check mapping success
-        n_na = adata.obs[mapping_label].isna().sum()
-        if n_na > 0:
-            logging.info(f'Number of unmapped entries: {n_na}')
-            logging.info(f'Unmapped entries:\n{adata.obs.loc[adata.obs[mapping_label].isna(), label_key].value_counts()}')
 
-    value_counts = adata.obs[
-        [x for x in mapping_order if x != index_col]
-    ].value_counts(dropna=False, sort=False)
-    # sort by unique values per column
-    value_counts = value_counts.sort_index(level=list(range(value_counts.index.nlevels)))
-    logging.info(f'New columns:\n{pformat(value_counts)}')
+    map_first_col = mapping_order[0]
+    use_index = index_col is not None and label_mapping.index.name == map_first_col
 
-    if old_index_name in adata.obs.columns:
-        logging.info(f'Reset index "{old_index_name}"...')
-        adata.obs = adata.obs.reset_index().set_index(old_index_name)
+    # Critical for large data: ensure 1:1 or M:1 join by dropping duplicates in mapping
+    if use_index:
+        dup = label_mapping.index.duplicated()
+        key = f"{input_new_cols} index"
+    else:
+        dup = label_mapping[map_first_col].duplicated()
+        key = f"{input_new_cols} column '{map_first_col}'"
+
+    if dup.any():
+        logging.warning(f"Duplicates in {key}; keeping first.")
+        label_mapping = label_mapping[~dup]
+    
+    # set up merging
+    join_kwargs = dict(how='left')
+
+    # handle index-based merging
+    if use_index:
+        # set join parameters
+        join_kwargs['left_index'] = True
+        join_kwargs['right_index'] = True
+
+        if index_col in mapping_order:
+            # no need to merge on index column if already set as index
+            mapping_order.remove(index_col)
+
+        # remove any duplicate columns from adata.obs
+        dup_cols = [col for col in mapping_order if col in adata.obs.columns]
+        logging.warning(f'Columns "{dup_cols}" already exist in adata.obs; dropping before merge.')
+        adata.obs = adata.obs.drop(columns=dup_cols)
+
+        # make unique index if needed to prevent merge issues
+        adata.obs = make_unique_index(adata.obs, index_col)        
+
+    else: # default merging on columns will be used on all present columns
+        join_kwargs['on'] = adata.obs.columns.intersection(mapping_order).tolist()
+
+    # merge
+    logging.info(f'Merging new columns with adata.obs using join_kwargs:\n{pformat(join_kwargs)}')
+    adata.obs = adata.obs.merge(label_mapping[mapping_order], **join_kwargs)
+    
+    # restore original obs_names
+    adata.obs_names = obs_names
+
+    logging.info(f"Successfully mapped columns:\n{pformat(mapping_order)}")
+    if use_index:
+        index_col = adata.obs_names.to_series()
+    else:
+        assert map_first_col in adata.obs.columns, f'Mapping column "{map_first_col}" not found in adata.obs after merge'
+        index_col = adata.obs[map_first_col]
+    logging.info(f"Mapping rate: {index_col.notna().mean():.1%}")
 
 
 # merge existing columns
-if input_merge_cols:
+if input_merge_cols or merge_columns_config:
     sep = snakemake.params.get('merge_sep', '-')
-    
-    merge_config_df = pd.read_table(input_merge_cols, comment='#')
     file_id = file_id.split(':')[-1]  # in case file_id contains ':'
+
+    if input_merge_cols:
+        merge_source = input_merge_cols
+        merge_config_df = pd.read_table(input_merge_cols, comment='#')
+    else:
+        merge_source = 'inline merge_columns config'
+        merge_config_df = _parse_merge_columns_config(merge_columns_config, file_id=file_id)
+    
     merge_config_df = merge_config_df[merge_config_df['file_id'] == file_id]
     
     if merge_config_df.shape[0] == 0:
-        logging.warning(f'No entries found in {input_merge_cols} for {file_id}')
+        logging.warning(f'No entries found in {merge_source} for {file_id}')
     
     else:
         logging.info(f'Merge columns:\n{pformat(merge_config_df)}')
@@ -208,9 +307,9 @@ if input_merge_cols:
         # check if required columns are present
         for col in ['file_id', 'column_name', 'columns']:
             assert col in merge_config_df.columns, \
-                f'"{col}" not found in {input_merge_cols}\n{merge_config_df}'    
+                f'"{col}" not found in {merge_source}\n{merge_config_df}'
         assert not merge_config_df.duplicated().any(), \
-            f'Duplicated rows in {input_merge_cols} for {file_id}\n{merge_config_df[merge_config_df.duplicated()]}'
+            f'Duplicated rows in {merge_source} for {file_id}\n{merge_config_df[merge_config_df.duplicated()]}'
         
         for _, row in tqdm(
             merge_config_df.iterrows(),
@@ -218,7 +317,7 @@ if input_merge_cols:
             desc=f'Merge values with sep="{sep}"',
         ):
             col_name = row['column_name']
-            cols = row['columns'].split(',')
+            cols = [x.strip() for x in str(row['columns']).split(',') if x.strip()]
             adata.obs[col_name] = adata.obs[cols].apply(
                 lambda x: sep.join(x.values.astype(str)), axis=1
             )
@@ -247,7 +346,7 @@ if selective_update:
         
         # build query mask
         labels = list(_dict.keys())
-        col_query = f'{col}.isin(@labels)'
+        col_query = f'`{col}`.isin(@labels)'
         
         # combine with user query if provided
         combined_query = f'({query}) & ({col_query})'
@@ -255,7 +354,7 @@ if selective_update:
         # log mapping before update
         columns = list(dict.fromkeys([col, base_column]))
         value_counts = adata.obs.query(combined_query)[columns].value_counts(dropna=False, sort=False)
-        logging.info(f'Before mapping "{col}", query={combined_query}, n={value_counts.sum()}:\n{pformat(value_counts)}')
+        logging.info(f'Before mapping "{col}"\nquery={combined_query}\n{labels=}\nn={value_counts.sum()}:\n{pformat(value_counts)}')
         
         # determine new values
         dtype = adata.obs[new_column].dtype
@@ -270,7 +369,7 @@ if selective_update:
         # log mapping results
         columns = list(dict.fromkeys([col, new_column]))
         value_counts = adata.obs.query(combined_query)[columns].value_counts(dropna=False, sort=False)
-        logging.info(f'After mapping "{col}", query={combined_query}, n={value_counts.sum()}:\n{pformat(value_counts)}')
+        logging.info(f'After mapping "{col}"\nquery={combined_query}\n{labels=}\nn={value_counts.sum()}:\n{pformat(value_counts)}')
 
 
 logging.info(f'Write to {output_file}...')

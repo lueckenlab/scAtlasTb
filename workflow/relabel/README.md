@@ -21,9 +21,15 @@ DATASETS:
     # module configuration
     relabel:
       
+      # add new columns with constant values
+      constant_columns:
+        dataset: "pbmc68k"
+        processing_version: "1.0"
+      
       # mapping setup for adding new columns
       new_columns:
         file:  test/input/mapping.tsv
+        # index_col: # optional
         order:
           - cell_type
           - harmonized_label
@@ -34,18 +40,25 @@ DATASETS:
         file:  test/input/merge_test.tsv
         sep: '-'
       
+      # rename existing obs columns
+      rename_columns:
+        bulk_labels: cell_type
+        phase: cell_cycle_phase
+      
+      # rename existing obsm keys
+      rename_obsm_keys:
+        X_pca: X_emb
+        old_embedding: new_embedding
+      
       # mapping setup for selective update of existing columns
-      selective_update: # 
+      selective_update:
         base_column: bulk_labels
         new_column: bulk_labels_new
+        query: 'n_counts > 1000'  # optional filter
         update_map:
           louvain:
             '6': Dendritic
             '8': 'CD19+ B'
-
-      # rename existing obsm keys
-      rename_obsm_keys:
-        X_pca: X_emb
 ```
 
 ## Mapping modes
@@ -65,15 +78,15 @@ In the configuration, you need to specify a TSV file with the mapping as well as
         file:  test/input/mapping.tsv  # mapping file
         order:
           - cell_type  # first entry MUST be an existing column in the anndata object
-          - harmonized_label  # metadata that hierarchically to first entry ('cell_type')
-          - lineage  # metadata that hierarchically to first entry ('cell_type')
+          - harmonized_label  # metadata that hierarchically relates to first entry ('cell_type')
+          - lineage  # metadata that hierarchically relates to first entry ('cell_type')
 ```
 
-* `file`: the path to the mapping file in a tabular format.
+* `file`: the path to the mapping file in a tabular format (TSV, CSV, or Parquet).
 * `order`: a list of columns in the mapping file that should be matched to the existing columns in the AnnData object.
   The first entry must be an existing column in the AnnData object, and the subsequent entries are the new columns to be created based on the mapping.
 
-The new column mapping file must be in TSV format with at least one column in the anndata object.
+The new column mapping file must contain at least one column that exists in the anndata object.
 The columns must include at least all columns that are specified in the `order` list.
 
 Example for `test/input/mapping.tsv`:
@@ -92,17 +105,29 @@ In that case, the first entry of the `order` list must be the name of the index 
 ```yaml
 ...
       new_columns:
-        index_col: index # column in the mapping file that should be used as index
-        file: test/input/mapping_index_test.tsv # mapping file with metadata mapped to index
+        index_col: index  # column in the mapping file that should be used as index
+        file: test/input/mapping_index_test.tsv  # mapping file with metadata mapped to index
         order:
-          - index # first entry MUST be the index column in the mapping file
-          - relabel_by_index
+          - index  # first entry MUST be the index column in the mapping file
+          - relabel_by_index  # new column to be added
+          - another_column  # optional: additional columns can be added
 ```
 
 * `index_col`: the name of the index column in the mapping file that should be used as index.
   If not specified, index mode is not used, so `index_col` must be set explicitly when mapping by index.
+* `file`: the path to the mapping file in a tabular format (TSV, CSV, or Parquet).
+* `order`: a list of columns in the mapping file. The first entry must be the index column name, followed by the new columns to be added.
 
-Note, that if the index in the mapping file does not match the index in your AnnData object, the pipeline will raise an error.
+Example for `test/input/mapping_index_test.tsv`:
+
+```
+index	relabel_by_index	cell_quality
+AAACCTGAGAAACCAT-1	typeA	high
+AAACCTGAGAAACCGC-1	typeB	medium
+AAACCTGAGAAACCTA-1	typeA	high
+```
+
+**Important:** If the index values in the mapping file do not match the index in your AnnData object (`adata.obs_names`), the pipeline will raise an error.
 
 #### Mapping file format
 
@@ -113,7 +138,7 @@ Parquet files are fully [compatible with Pandas](https://pandas.pydata.org/panda
 ...
       new_columns:
         index_col: index
-        file: test/input/mapping_index_test.parquet # use parquet file for mapping
+        file: test/input/mapping_index_test.parquet  # use parquet file for mapping
         order:
           - index
           - relabel_by_index
@@ -135,6 +160,25 @@ This is most useful when you want more granular categories in a single column, e
 
 * `file`: the path to the mapping file in a TSV format.
 * `sep`: the separator used to merge the column values. The default is `'-'`, but you can specify any separator you like.
+
+As an alternative to a TSV file, you can define merge rules directly in YAML.
+In this case, each key is the output column and each value defines `columns` and optionally `file_id`:
+
+```yaml
+...
+      merge_columns:
+        sep: '-'
+        cc_joint:
+          file_id: file_1
+          columns: [S_score, G2M_score]
+        ct_joint:
+          columns: bulk_labels,louvain
+```
+
+For inline YAML mode:
+
+* `columns` can be either a comma-separated string or a list.
+* `file_id` is optional; if omitted, the current pipeline `file_id` is used.
 
 The merge column mapping file (`file`) must be in TSV format with the following columns:
 
@@ -213,6 +257,19 @@ CD4+/CD45RA+/CD25- Naive T	lymphoid
 CD34+	HSCs
 ```
 
+### Rename existing columns: `rename_columns`
+
+You can rename existing columns in `adata.obs` by specifying a mapping of old to new column names.
+
+```yaml
+...
+      rename_columns:
+        old_column_name: new_column_name
+        another_old: another_new
+```
+
+This creates new columns with the specified names containing the data from the old columns. If an old column doesn't exist in the data, a new column filled with `'nan'` will be created.
+
 ### Rename existing obsm keys: `rename_obsm_keys`
 
 You can rename existing obsm keys in the AnnData object by specifying a mapping of old to new keys.
@@ -221,9 +278,43 @@ You can rename existing obsm keys in the AnnData object by specifying a mapping 
 ...
       rename_obsm_keys:
         X_pca: X_emb  # rename 'X_pca' to 'X_emb'
+        old_embedding: new_embedding
 ```
 
-This will rename the obsm key `X_pca` to `X_emb` in the AnnData object, without modifying any data.
+This will rename the obsm key `X_pca` to `X_emb` in the AnnData object, without modifying any data. If a key doesn't exist, a warning will be logged and that key will be skipped.
+
+### Add constant columns: `constant_columns`
+
+The constant columns feature allows you to add new columns with a single constant value across all cells.
+This is useful for adding metadata such as dataset name, processing version, quality control status, or any other fixed value that applies to all observations.
+
+```yaml
+...
+      constant_columns:
+        column_name_1: value_1
+        column_name_2: value_2
+        column_name_3: value_3
+```
+
+* Each key is the name of the new column to be created
+* The value is the constant value to be assigned to all cells in that column
+
+The values can be of any type (strings, numbers, booleans, etc.) and will be broadcast to all rows in the AnnData object.
+
+Example:
+
+```yaml
+relabel:
+  constant_columns:
+    dataset: "pbmc68k"
+    processing_version: "1.0"
+    quality_control: "passed"
+```
+
+This would add three new columns to the AnnData object:
+- `dataset`: all cells would have the value "pbmc68k"
+- `processing_version`: all cells would have the value "1.0"
+- `quality_control`: all cells would have the value "passed"
 
 ## Other parameters
 
