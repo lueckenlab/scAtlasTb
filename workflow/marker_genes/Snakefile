@@ -2,7 +2,6 @@
 Marker genes
 """
 from pathlib import Path
-import pandas as pd
 
 from utils.marker_genes import get_marker_gene_set
 from utils.environments import get_env
@@ -38,14 +37,22 @@ module common:
 use rule * from common as common_ *
 
 include: 'rules/marker_genes.smk'
-include: 'rules/plots.smk'
+include: 'rules/user_genes.smk'
 
 
 rule all:
     input:
-        mcfg.get_output_files(rules.plot.output, all_params=True),
         mcfg.get_output_files(rules.plot_user.output, all_params=True),
-        mcfg.get_output_files(rules.collect.output),
+        mcfg.get_output_files(
+            rules.collect.output,
+            all_params=True,
+            subset_dict={'rank_genes_groups': {'notin': [False, 'False']}},
+        ),
+        mcfg.get_output_files(
+            rules.plot.output,
+            all_params=True,
+            subset_dict={'rank_genes_groups': {'notin': [False, 'False']}},
+        ),
     default_target: True
     localrule: True
 
