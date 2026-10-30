@@ -20,8 +20,8 @@ rule majority_voting:
         zarr=directory(mcfg.out_dir / f'{paramspace.wildcard_pattern}.zarr'),
         plots=directory(mcfg.image_dir / f'{paramspace.wildcard_pattern}'),
     params:
-        columns=lambda wildcards: mcfg.get_from_parameters(wildcards, 'columns'),
-        threshold=lambda wildcards: mcfg.get_from_parameters(wildcards, 'threshold'),
+        columns=lambda wildcards: mcfg.get_from_parameters(wildcards, 'columns', default=[]),
+        threshold=lambda wildcards: mcfg.get_from_parameters(wildcards, 'threshold', default=0.5),
     conda:
         get_env(config, 'scanpy', env_dir='envs')
     resources:
