@@ -1,7 +1,7 @@
 rule scarches:
     input:
         zarr=lambda wildcards: mcfg.get_input_file(**wildcards),
-        model=lambda wildcards: mcfg.get_from_parameters(wildcards, 'scarches', default={}).get('model')
+        model=lambda wildcards: mcfg.get_from_parameters(wildcards, 'scarches', default={}).get('model'),
     output:
         zarr=directory(mcfg.out_dir / 'model' / f'{paramspace.wildcard_pattern}.zarr'),
         model=directory(mcfg.out_dir / 'model' / paramspace.wildcard_pattern),

@@ -167,9 +167,26 @@ def ridge_plot(
         return grid
 
     # ── Threshold lines ───────────────────────────────────────────────────────
-    base_metric = metric.split('_', 1)[1] if metric.startswith('log1p_') else metric
-    log_transform = metric.startswith('log1p_')
     study_first = (row_group == 'file_name' and col_group == 'split_data_value')
+    metric_facets = (col_group == 'metric_name' and 'metric_name' in df.columns)
+    fixed_study = None
+    fixed_lineage = None
+    if metric_facets:
+        if row_group == 'file_name' and 'split_data_value' in df.columns:
+            lineage_values = [str(v) for v in df['split_data_value'].dropna().unique()]
+            if len(lineage_values) == 1:
+                fixed_lineage = lineage_values[0]
+        elif row_group == 'split_data_value' and 'file_name' in df.columns:
+            study_values = [str(v) for v in df['file_name'].dropna().unique()]
+            if len(study_values) == 1:
+                fixed_study = study_values[0]
+
+    def _metric_parts(metric_name):
+        metric_name = str(metric_name)
+        if metric_name.startswith('log1p_'):
+            return metric_name.split('_', 1)[1], True
+        return metric_name, False
+
     seen_types = set()
 
     # draw threshold lines in a separate overlay axis to ensure they are visible above the KDE layers
@@ -192,7 +209,16 @@ def ridge_plot(
             return False
         return np.isclose(float(x), float(y), rtol=0, atol=1e-12)
 
-    def draw_threshold(ax, study_name, lineage_name, thresh_type, linestyle, skip_bounds=None):
+    def draw_threshold(
+        ax,
+        study_name,
+        lineage_name,
+        base_metric,
+        log_transform,
+        thresh_type,
+        linestyle,
+        skip_bounds=None,
+    ):
         bounds = _extract_bounds(thresholds_df, study_name, lineage_name, 'lineage', thresh_type, [base_metric])
         vmin, vmax = bounds.get(base_metric, (None, None))
         drawn = False
@@ -213,7 +239,18 @@ def ridge_plot(
 
     for i, r_name in enumerate(grid.row_names):
         for j, c_name in enumerate(grid.col_names):
-            study, lineage = (str(r_name), str(c_name)) if study_first else (str(c_name), str(r_name))
+            if metric_facets:
+                base_metric, log_transform = _metric_parts(c_name)
+                if row_group == 'file_name' and fixed_lineage is not None:
+                    study, lineage = str(r_name), fixed_lineage
+                elif row_group == 'split_data_value' and fixed_study is not None:
+                    study, lineage = fixed_study, str(r_name)
+                else:
+                    continue
+            else:
+                base_metric, log_transform = _metric_parts(metric)
+                study, lineage = (str(r_name), str(c_name)) if study_first else (str(c_name), str(r_name))
+
             for thresh_type, linestyle, _ in THRESHOLD_TYPES:
                 skip_bounds = None
                 if thresh_type == 'updated':
@@ -231,7 +268,16 @@ def ridge_plot(
                     }
                     if len(skip_bounds) == 2:
                         continue
-                if draw_threshold(grid.axes[i, j], study, lineage, thresh_type, linestyle, skip_bounds=skip_bounds):
+                if draw_threshold(
+                    grid.axes[i, j],
+                    study,
+                    lineage,
+                    base_metric,
+                    log_transform,
+                    thresh_type,
+                    linestyle,
+                    skip_bounds=skip_bounds,
+                ):
                     seen_types.add(thresh_type)
 
     # ── Threshold legend ──────────────────────────────────────────────────────
@@ -456,37 +502,69 @@ if qc_df is not None:
         logging.info('No numeric QC metric columns found. Skipping ridge plots.')
     else:
         logging.info(f'Found {len(metric_columns)} numeric QC metric columns for plotting: {metric_columns}')
-        for metric in tqdm(metric_columns, desc='Creating ridge plots'):
-            metric_df = qc_df[['file_id', 'file_name', 'split_data_value', metric]].copy()
-            metric_df[metric] = pd.to_numeric(metric_df[metric], errors='coerce')
-            metric_df = metric_df[np.isfinite(metric_df[metric])]
+        n_file_names = qc_df['file_name'].nunique()
+        n_split_values = qc_df['split_data_value'].nunique()
+        if n_file_names < n_split_values:
+            row_group = 'split_data_value'
+            col_group = 'file_name'
+        else:
+            row_group = 'file_name'
+            col_group = 'split_data_value'
 
-            if metric_df.shape[0] < 2 or metric_df['file_name'].nunique() == 0:
-                continue
-            if metric_df[metric].nunique() < 2:
-                continue
+        # If there would only be a single facet column, generate one combined plot
+        # with one column per metric instead of one file per metric.
+        if qc_df[col_group].nunique() == 1 and len(metric_columns) > 1:
+            combined_frames = []
+            for metric in metric_columns:
+                tmp = qc_df[[row_group, 'file_name', 'split_data_value', metric]].copy()
+                tmp[metric] = pd.to_numeric(tmp[metric], errors='coerce')
+                tmp = tmp[np.isfinite(tmp[metric])]
+                if tmp.shape[0] < 2 or tmp[metric].nunique() < 2:
+                    continue
+                tmp = tmp.rename(columns={metric: 'metric_value'})
+                tmp['metric_name'] = metric
+                combined_frames.append(tmp)
 
-            n_file_names = metric_df['file_name'].nunique()
-            n_split_values = metric_df['split_data_value'].nunique()
-            if n_file_names < n_split_values:
-                row_group = 'split_data_value'
-                col_group = 'file_name'
+            if len(combined_frames) == 0:
+                logging.info('No plottable metric values found for combined ridge plot.')
             else:
-                row_group = 'file_name'
-                col_group = 'split_data_value'
+                combined_df = pd.concat(combined_frames, ignore_index=True)
+                out_file = output_ridge / 'all_metrics_ridge.svg'
+                ridge_plot(
+                    combined_df,
+                    row_group=row_group,
+                    col_group='metric_name',
+                    metric='metric_value',
+                    out_file=out_file,
+                    dpi=dpi,
+                    thresholds_df=thresholds_df,
+                    threshold_color=threshold_color,
+                )
+                written_files.append(out_file.name)
+                logging.info('Created combined ridge plot across metrics with threshold overlays.')
+        else:
+            for metric in tqdm(metric_columns, desc='Creating ridge plots'):
+                metric_df = qc_df[['file_id', 'file_name', 'split_data_value', metric]].copy()
+                metric_df[metric] = pd.to_numeric(metric_df[metric], errors='coerce')
+                metric_df = metric_df[np.isfinite(metric_df[metric])]
 
-            out_file = output_ridge / f'{safe_name(metric)}.svg'
-            ridge_plot(
-                metric_df,
-                row_group=row_group,
-                col_group=col_group,
-                metric=metric,
-                out_file=out_file,
-                dpi=dpi,
-                thresholds_df=thresholds_df,
-                threshold_color=threshold_color,
-            )
-            written_files.append(out_file.name)
+                if metric_df.shape[0] < 2 or metric_df['file_name'].nunique() == 0:
+                    continue
+                if metric_df[metric].nunique() < 2:
+                    continue
+
+                out_file = output_ridge / f'{safe_name(metric)}.svg'
+                ridge_plot(
+                    metric_df,
+                    row_group=row_group,
+                    col_group=col_group,
+                    metric=metric,
+                    out_file=out_file,
+                    dpi=dpi,
+                    thresholds_df=thresholds_df,
+                    threshold_color=threshold_color,
+                )
+                written_files.append(out_file.name)
 
 if len(written_files) > 0:
     logging.info(f'Created {len(written_files)} ridge plots in {output_ridge}')

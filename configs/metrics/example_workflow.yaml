@@ -13,6 +13,7 @@ DATASETS:
     metrics:
       label: bulk_labels
       batch: louvain
+      var_mask: highly_variable_genes
       overwrite_file_id: true
       metrics:
         - nmi
