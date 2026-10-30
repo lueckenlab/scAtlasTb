@@ -30,69 +30,66 @@ output_dir = Path(snakemake.output.plots)
 output_dir.mkdir(exist_ok=True)
 cluster_keys = snakemake.params.get('cluster_keys')
 covariates = snakemake.params.get('covariates')
+max_categories = snakemake.params.get('max_categories', 100)
 threads = snakemake.threads
 
+logging.info(f'Read {input_file}...')
+obs = read_anndata(input_file, obs='obs').obs
 
-obs_df = read_anndata(input_file, obs='obs').obs
-columns = [x for x in cluster_keys + covariates if x in obs_df.columns]
-obs_df = obs_df[columns]
+# filter covariates
+logging.info(f'Categories: {covariates}')
+covariates = set([c for c in covariates if c in obs.columns])
+for col in list(covariates):
+    if obs[col].dtype == 'object':
+        obs[col] = obs[col].astype('category')
+    if obs[col].dtype == 'category' and obs[col].nunique() > max_categories:
+        logging.info(f'Skipping {col}, too many values')
+        covariates.remove(col)
+logging.info(f'Categories after filtering: {covariates}')
 
-def call_plot(covariate, cluster_key, obs_df, output_dir):
-    if covariate not in obs_df.columns:
-        logging.info(f'Column "{covariate}" not found in obs, skip...')
-        return
+# Make obs read-only to prevent accidental modifications
+obs.flags.writeable = False
 
-    if obs_df[covariate].dtype == 'object':
-        obs_df[covariate] = obs_df[covariate].astype(str).astype('category')
 
+def call_plot(covariate, cluster_key, output_dir):
     try:
-        if obs_df[covariate].dtype == 'category':
-            if obs_df[covariate].nunique() > 100:
-                logging.info(f'Skipping {cluster_key}--{covariate}, too many values')
-                return
-            score = nmi(obs_df, cluster_key, covariate)
+        if obs[covariate].dtype == 'category':
+            score = nmi(obs, cluster_key, covariate)
             fig = plot_stacked_bar(
-                obs_df,
+                obs,
                 category_key=cluster_key,
                 covariate_key=covariate,
                 count_type='proportion',
                 title_suffix=f' (NMI: {score:.3f})',
                 return_fig=True,
             )
-        elif ptypes.is_numeric_dtype(obs_df[covariate]):
+        elif ptypes.is_numeric_dtype(obs[covariate]):
             fig = plot_violin(
-                obs_df,
+                obs,
                 category_key=cluster_key,
                 covariate_key=covariate,
                 return_fig=True,
             )
         else:
-            raise ValueError(f'Invalid covariate type: {obs_df[covariate].dtype}, must be category or numeric')
+            raise ValueError(f'Invalid covariate type: {obs[covariate].dtype}, must be category or numeric')
         
         fig.savefig(output_dir / f'{cluster_key}--{covariate}.png', bbox_inches='tight')
+        plt.close(fig)
         
     except Exception as e:
         logging.error(f'Error plotting {cluster_key}--{covariate}: {e}')
         traceback.print_exc()
-        return
+    finally:
+        # Ensure all figures are closed
+        plt.close('all')
 
-Parallel(n_jobs=threads, backend='threading')(
-    delayed(call_plot)(covariate, cluster_key, obs_df, output_dir)
-    for covariate in tqdm(covariates, desc=f'Plotting with {threads} threads')
-    for cluster_key in cluster_keys
+
+tasks = [(covariate, cluster_key) for covariate in covariates for cluster_key in cluster_keys]
+
+results = Parallel(n_jobs=threads, backend='threading', return_as='generator')(
+    delayed(call_plot)(covariate, cluster_key, output_dir)
+    for covariate, cluster_key in tasks
 )
 
-# with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
-#     tasks = [
-#         (covariate, cluster_key, obs_df, output_dir)
-#         for covariate in covariates if covariate in obs_df.columns
-#         for cluster_key in cluster_keys
-#     ]
-#     futures = [executor.submit(call_plot, *task) for task in tasks]
-    
-#     for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-#         try:
-#             future.result()
-#         except Exception as e:
-#             logging.error(f"Exception occurred: {e}")
-#             traceback.print_exc()
+for _ in tqdm(results, total=len(tasks), desc=f'Plotting with {threads} threads'):
+    pass
