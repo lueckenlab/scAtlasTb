@@ -10,7 +10,7 @@ import re
 
 from utils.io import read_anndata, get_file_reader, write_zarr_linked, link_file
 from utils.misc import dask_compute
-from collect_utils import get_same_columns, merge_df, align_file_indices, LARGE_SLOTS
+from collect_utils import analyze_slot_columns, merge_df, align_file_indices, LARGE_SLOTS
 
 
 dataset = snakemake.wildcards.dataset
@@ -21,7 +21,7 @@ obs_index_col_map = snakemake.params.get('obs_index_col', {})
 same_slots = snakemake.params.get('same_slots', [])
 merge_slots = snakemake.params.get('merge_slots', [])
 skip_slots = snakemake.params.get('skip_slots', [])
-kwargs = {k: k for k in same_slots+merge_slots if k not in skip_slots}
+read_kwargs = {k: k for k in same_slots+merge_slots if k not in skip_slots}
 
 # parse obs index
 if isinstance(obs_index_col_map, str):
@@ -39,7 +39,7 @@ obs_index_col_map = {
 
 if len(files) == 1:
     logging.info('Single file, write unmodified...')
-    adata = read_anndata(files[0], **kwargs, dask=True, backed=True)
+    adata = read_anndata(files[0], **read_kwargs, dask=True, backed=True)
     print(adata, flush=True)
     if files[0].endswith('.zarr'):
         write_zarr_linked(adata, in_dir=files[0], out_dir=output_file)
@@ -62,18 +62,22 @@ def read_file(file, **kwargs):
         ]
         for slot_name, default_value in zip(LARGE_SLOTS, default_values):
             slot_keys = func(file, 'r').get(slot_name, {}).keys()
-            setattr(
-                adata,
-                f'_{slot_name}',
-                {key: default_value for key in slot_keys}
-            )
+            slot_values = {key: default_value for key in slot_keys}
+            setattr(adata, slot_name, slot_values)
         
         return adata
     return read_anndata(file, verbose=False, **kwargs)
 
 
+def get_slot(adata, slot_name):
+    slot = getattr(adata, slot_name, None)
+    if slot is not None:
+        return slot
+    return adata.__dict__.get(f'_{slot_name}')
+
+
 adatas = {
-    file_id: read_file(file, **kwargs, dask=True, backed=True)
+    file_id: read_file(file, **read_kwargs, dask=True, backed=True)
     for file_id, file in tqdm(
         files.items(),
         desc='Read files',
@@ -83,22 +87,27 @@ adatas = {
 }
 logging.info(f'File ids: \n{pformat(list(adatas.keys()))}')
 
+for file_id, adata in adatas.items():
+    assert adata.obsm is not None, f'adata.obsm is None for file_id={file_id}'
+
 # Ensure all adatas have the same obs_names and var_names, and match their order to the first adata
 write_copy_for = align_file_indices(adatas, files, merge_slots)
+column_suffix_map = {}
 
 if 'obs' in merge_slots:
-    for file_id, _ad in adatas.items():
-        obs_index_column = obs_index_col_map.get(file_id)
-        if obs_index_column is not None:
-            logging.info(f'Set obs index "{obs_index_column}" for file_id={file_id}...')
-            assert obs_index_column in _ad.obs.columns, \
-                f'Index column "{obs_index_column}" not found for {file_id}\n{_ad.obs}'
-            adatas[file_id].obs = _ad.obs.set_index(obs_index_column)
-    logging.info('Determine which columns are the same...')
-    same_obs_columns = get_same_columns(adatas, n_threads=snakemake.threads)
-    logging.info(f'Same columns:\n{pformat(same_obs_columns)}')
-else:
-    same_obs_columns = []
+    logging.info('Determine which columns need suffixes for obs...')
+    column_suffix_map['obs'] = analyze_slot_columns(
+        {file_id: adata.obs for file_id, adata in adatas.items()},
+        n_threads=snakemake.threads
+    )
+
+if 'var' in merge_slots:
+    logging.info('Determine which columns need suffixes for var...')
+    column_suffix_map['var'] = analyze_slot_columns(
+        {file_id: adata.var for file_id, adata in adatas.items()},
+        n_threads=snakemake.threads
+    )
+
 
 # TODO: link slots with new slot names for merge_slots
 
@@ -116,7 +125,7 @@ for file_id, _ad in adatas.items():
 
     for slot_name in merge_slots:
         logging.info(f'Merge slot "{slot_name}" for file_id={file_id}...')
-        slot = _ad.__dict__.get(f'_{slot_name}')
+        slot = get_slot(_ad, slot_name)
         update_slot_link_map = dict()
         to_link = file_name.endswith('.zarr') and file_id not in write_copy_for.get(slot_name, [])
         
@@ -125,7 +134,7 @@ for file_id, _ad in adatas.items():
                 df_current=slot,
                 file_id=file_id,
                 df_previous=slots.get(slot_name),
-                same_columns=same_obs_columns,
+                column_suffix_map=column_suffix_map.get(slot_name, {}),
                 sep=sep,
             )
         elif slot_name == 'X':
@@ -147,6 +156,8 @@ for file_id, _ad in adatas.items():
                 }
                 slots[slot_name] = slots.get(slot_name, {}) | new_slot
         else:
+            logging.info(f'file: {file_name}')
+            logging.info(slot)
             raise NotImplementedError(f'Slot "{slot_name}" not supported')
         
         slot_link_map |= update_slot_link_map
@@ -159,14 +170,18 @@ if file_to_link:
     slot_link_map |= {slot: slot for slot in same_slots}
 else:
     for slot_name in same_slots:
-        slots[slot_name] = _ad.__dict__.get(f'_{slot_name}')
+        slots[slot_name] = get_slot(_ad, slot_name)
 
 logging.info('Create AnnData object...')
 adata = ad.AnnData(**slots)
 print(adata, flush=True)
 
 logging.info('Compute matrix...')
-compute_layers = [v for slot in LARGE_SLOTS for v in getattr(adata, f'_{slot}').keys()]
+compute_layers = [
+    key
+    for slot in LARGE_SLOTS
+    for key in (getattr(adata, slot, {}) or {}).keys()
+]
 print(f'Compute layers: {compute_layers}', flush=True)
 adata = dask_compute(adata, layers=compute_layers)
 
