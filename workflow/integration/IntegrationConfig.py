@@ -36,7 +36,7 @@ class IntegrationConfig(ModuleConfig):
             kwargs['parameters'] = parameters
         
         kwargs['dont_inherit'] = ['methods']
-        
+
         super().__init__(**kwargs, write_output_files=False)
         
         # set hyperparameters

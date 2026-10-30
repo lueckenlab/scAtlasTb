@@ -1,10 +1,14 @@
-from pprint import pformat
-from pathlib import Path
+import os
+print(os.environ['PYTORCH_CUDA_ALLOC_CONF'], flush=True)
 import logging
 logging.basicConfig(level=logging.INFO)
+from pprint import pformat
+from pathlib import Path
 import torch
-import scanpy as sc
 from harmony import harmonize
+
+import dask
+dask.config.set(scheduler='threads')
 
 from integration_utils import clean_categorical_column, add_metadata, \
     remove_slots, get_hyperparams, PCA_PARAMS
@@ -12,6 +16,7 @@ from mcv import mcv_optimal_pcs_scanpy, plot_mcv_pca
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import subset_hvg
 from utils.misc import dask_compute
+from utils.processing import sc, USE_GPU
 
 
 input_file = snakemake.input[0]
@@ -22,6 +27,8 @@ Path(output_plot_dir).mkdir(parents=True, exist_ok=True)
 wildcards = snakemake.wildcards
 params = dict(snakemake.params)
 batch_key = wildcards.batch
+
+dask.config.set({'num_workers': snakemake.threads})
 
 hyperparams = params.get('hyperparams', {})
 hyperparams = {} if hyperparams is None else hyperparams
@@ -94,6 +101,8 @@ if pca_kwargs.get('n_comps') == 'mcv':
 
     plot_mcv_pca(mcv_summary, figdir=output_plot_dir)
 
+if USE_GPU:
+    sc.get.anndata_to_GPU(adata)
 
 if scale:
     logging.info('Scale counts...')
@@ -106,15 +115,30 @@ sc.pp.pca(adata, **pca_kwargs)
 adata = dask_compute(adata, layers='X_pca')
 del adata.X
 
+if USE_GPU:
+    import cupy as cp
+    adata.obsm['X_pca'] = cp.asnumpy(adata.obsm['X_pca'])
+
 # run method
 logging.info(f'Run Harmony pytorch with parameters {pformat(hyperparams)}...')
-adata.obsm['X_emb'] = harmonize(
-    adata.obsm['X_pca'],
-    adata.obs,
-    use_gpu=use_gpu,
-    n_jobs=snakemake.threads,
-    **hyperparams
-)
+try:
+    adata.obsm['X_emb'] = harmonize(
+        adata.obsm['X_pca'],
+        adata.obs,
+        use_gpu=use_gpu,
+        n_jobs=snakemake.threads,
+        **hyperparams
+    )
+except torch.OutOfMemoryError as e:
+    logging.warning(f'GPU OOM with error: {e}')
+    logging.info('Fallback to CPU...')
+    adata.obsm['X_emb'] = harmonize(
+        adata.obsm['X_pca'],
+        adata.obs,
+        use_gpu=False,
+        n_jobs=snakemake.threads,
+        **hyperparams
+    )
 
 # prepare output adata
 adata = remove_slots(adata=adata, output_type=params['output_type'])

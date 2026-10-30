@@ -11,6 +11,9 @@ from pytorch_lightning.callbacks import TQDMProgressBar
 import logging
 logging.basicConfig(level=logging.INFO)
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import add_metadata, get_hyperparams, remove_slots, set_model_history_dtypes, \
     SYSVI_MODEL_PARAMS, plot_model_history, clean_categorical_column
 from utils.io import read_anndata, write_zarr_linked, to_memory
@@ -30,6 +33,7 @@ torch.set_float32_matmul_precision('medium')
 scvi.settings.seed = params.get('seed', 0)
 scvi.settings.progress_bar_style = 'tqdm'
 scvi.settings.num_threads = snakemake.threads
+dask.config.set({'num_workers': snakemake.threads})
 
 model_params, train_params = get_hyperparams(
     hyperparams=params.get('hyperparams', {}),
@@ -117,11 +121,7 @@ model = SysVI(adata, **model_params)
 logging.info(f'Train SysVI with parameters:\n{pformat(train_params)}')
 batch_size = train_params.get("batch_size", 128)
 steps_per_epoch = ceil(adata.n_obs / batch_size)
-model.train(
-    **train_params,
-    simple_progress_bar=False,
-    callbacks=[TQDMProgressBar(refresh_rate=steps_per_epoch)],
-)
+model.train(**train_params)
 
 logging.info('Save model...')
 model.save(output_model, overwrite=True)

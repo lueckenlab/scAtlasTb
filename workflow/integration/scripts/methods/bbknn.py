@@ -3,6 +3,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 import scanpy as sc
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import clean_categorical_column, add_metadata, \
     remove_slots, get_hyperparams, PCA_PARAMS
 from utils.io import read_anndata, write_zarr_linked
@@ -15,6 +18,8 @@ output_file = snakemake.output[0]
 wildcards = snakemake.wildcards
 params = snakemake.params
 batch_key = wildcards.batch
+
+dask.config.set({'num_workers': snakemake.threads})
 
 hyperparams = params.get('hyperparams', {})
 hyperparams = {} if hyperparams is None else hyperparams

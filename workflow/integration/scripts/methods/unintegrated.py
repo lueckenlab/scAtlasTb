@@ -3,6 +3,9 @@ import scanpy as sc
 import logging
 logging.basicConfig(level=logging.INFO)
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import add_metadata, remove_slots, clean_categorical_column
 from utils.io import read_anndata, write_zarr_linked
 from utils.processing import assert_neighbors
@@ -13,6 +16,8 @@ input_file = snakemake.input[0]
 output_file = snakemake.output[0]
 wildcards = snakemake.wildcards
 params = snakemake.params
+
+dask.config.set({'num_workers': snakemake.threads})
 
 adata = read_anndata(
     input_file,
