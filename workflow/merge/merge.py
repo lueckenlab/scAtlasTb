@@ -61,6 +61,25 @@ def read_adata(
     return adata
 
 
+def get_common_obs_columns(adatas):
+    if not adatas:
+        return []
+
+    common = set(adatas[0].obs.columns)
+    for adata in adatas[1:]:
+        common &= set(adata.obs.columns)
+
+    return [column for column in adatas[0].obs.columns if column in common]
+
+
+def keep_only_obs_columns(adata, columns):
+    if columns:
+        adata.obs = adata.obs.loc[:, columns].copy()
+    else:
+        adata.obs = pd.DataFrame(index=adata.obs_names)
+    return adata
+
+
 def remove_slots(adata):
     for slot in ['X', 'layers', 'obsm', 'obsp', 'varm', 'varp']:
         if hasattr(adata, slot):
@@ -222,16 +241,16 @@ if len(files) == 1:
 def get_shape(file):
     if file.endswith('.zarr'):
         zattr_path = Path(file) / slots.get('X', 'X') / '.zattrs'
-        with open(zattr_path, 'r') as f:
-            zattrs = yaml.safe_load(f)
-        if 'shape' in zattrs:
-            shape = zattrs['shape']
-        else:
-            # Fall back to reading the file if 'shape' is missing
-            shape = read_anndata(file, obs='obs', var='var', verbose=False).shape
+        if zattr_path.exists():
+            shape = read_anndata(file, X='X', dask=True, backed=True, verbose=False).shape
+    # # doesn't work when using file symlinking
+    #         with open(zattr_path, 'r') as f:
+    #             zattrs = yaml.safe_load(f) or {}
+    #         if 'shape' in zattrs:
+    #             return list(zattrs['shape'])
     else:
         shape = read_anndata(file, obs='obs', var='var', verbose=False).shape
-    return list(shape)
+    return list(shape)  # tuples fail when saving zarr
 
 original_shapes = {
     file_id: get_shape(file)
@@ -266,6 +285,19 @@ if dask:
         )
         for file_id, file_path in tqdm(files.items(), desc='Read files', miniters=1)
     ]
+    obs_col_check = list(zip(files.keys(), (adata.obs.shape[1] for adata in adatas)))
+    insufficient_files = [fid for fid, n_cols in obs_col_check if n_cols <= 20]
+    if insufficient_files:
+        logging.warning(f'Files with insufficient obs columns (<=20): {insufficient_files}')
+        for fid, n_cols in obs_col_check:
+            logging.info(f'  {fid}: {n_cols} obs columns')
+    assert all(n_cols > 20 for _, n_cols in obs_col_check), 'not all adatas have more than 20 obs columns'
+
+    common_obs_columns = [] if keep_all_columns else get_common_obs_columns(adatas)
+    print(common_obs_columns)
+    assert len(common_obs_columns) > 20, 'not enough common obs columns found across adatas, cannot merge with current settings'
+    for adata_item in adatas:
+        keep_only_obs_columns(adata_item, common_obs_columns)
     
     # Merge adatas with batching to reduce dask layer depth
     if persist and len(adatas) > 2:
@@ -287,10 +319,13 @@ if dask:
     
 elif backed:
     logging.info('Read all files in backed mode...')
-    adatas = (
+    adatas = [
         read_adata(file_path, file_id=file_id, backed=backed, dask=dask)
         for file_id, file_path in files.items()
-    )
+    ]
+    common_obs_columns = [] if keep_all_columns else get_common_obs_columns(adatas)
+    for adata_item in adatas:
+        keep_only_obs_columns(adata_item, common_obs_columns)
     dc = AnnCollection(
         adatas,
         join_obs='outer',
@@ -325,7 +360,15 @@ else:
         
         if adata is None:
             adata = _ad
+            if keep_all_columns:
+                keep_only_obs_columns(adata, [])
             continue
+
+        common_obs_columns = [] if keep_all_columns else [
+            column for column in adata.obs.columns if column in _ad.obs.columns
+        ]
+        keep_only_obs_columns(adata, common_obs_columns)
+        keep_only_obs_columns(_ad, common_obs_columns)
         
         # merge adata
         adata = sc.concat([adata, _ad], join=merge_strategy)
