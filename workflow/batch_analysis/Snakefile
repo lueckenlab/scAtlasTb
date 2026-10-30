@@ -53,6 +53,7 @@ include: 'rules/theils_u.smk'
 
 
 rule all:
+    message: "Running batch variable analysis"
     input:
         rules.pseudobulk_all.input,
         mcfg.get_output_files(rules.theils_u.output),
@@ -61,6 +62,10 @@ rule all:
     default_target: True
     localrule: True
 
+rule pcr_all:
+    input:
+        mcfg.get_output_files(rules.batch_pcr_collect.output),
+    localrule: True
 
 rule dependency_graph:
     input:

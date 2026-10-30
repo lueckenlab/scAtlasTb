@@ -10,6 +10,8 @@ from matplotlib.axes import Axes
 from matplotlib.gridspec import GridSpec
 import seaborn as sns
 
+plt.rcParams["svg.fonttype"] = "none"
+
 
 # ============================================================================
 # Helper
@@ -41,7 +43,7 @@ class PCRPlotConfig:
     min_gap_inches: float = 0.7
     label_char_width_inches: float = 0.08
     label_gap_padding_inches: float = 0.2
-    main_xlabel: str = 'Principal component regression $R^2$'
+    main_xlabel: str = 'Principal component regression score'
     left_margin: float = 0.04
     right_margin: float = 0.02
     bottom_margin: float = 0.11
