@@ -53,6 +53,10 @@ include: 'rules/plots.smk'
 
 
 rule plots_all:
+    message:
+        """
+        Collect all preprocessing plots for all datasets and methods
+        """
     input:
         mcfg.get_output_files(rules.preprocessing_plot_pca.output),
         mcfg.get_output_files(rules.preprocessing_plot_umap.output),
@@ -60,9 +64,12 @@ rule plots_all:
 
 
 rule all:
+    message:
+        """
+        Preprocessing for all datasets and methods
+        """
     input:
         mcfg.get_output_files(rules.preprocessing_assemble.output),
-        rules.plots_all.input,
     default_target: True
     localrule: True
 
