@@ -57,14 +57,19 @@ def _filter_batch(adata, batch_key=None, min_cells=10):
     """
     Filter cells from batches with too few cells
     """
-    mask = np.ones(adata.n_obs, dtype=bool)
-    if batch_key is not None:
-        cells_per_batch = adata.obs[batch_key].value_counts()
-        if cells_per_batch.min() < min_cells:
-            batches = cells_per_batch[cells_per_batch >= min_cells].index
-            print(f'Keeping {len(batches)} out of {len(cells_per_batch)} batches with at least {min_cells} cells')
-            mask = adata.obs[batch_key].isin(batches)
-    return mask
+    if batch_key is None:
+        return np.ones(adata.n_obs, dtype=bool)
+
+    batch_values = adata.obs[batch_key]
+    cells_per_batch = batch_values.dropna().value_counts()
+    if cells_per_batch.empty:
+        return np.zeros(adata.n_obs, dtype=bool)
+
+    keep_batches = cells_per_batch[cells_per_batch >= min_cells].index
+    if len(keep_batches) < len(cells_per_batch):
+        print(f'Keeping {len(keep_batches)} out of {len(cells_per_batch)} batches with at least {min_cells} cells')
+
+    return batch_values.isin(keep_batches).to_numpy()
 
 
 def _filter_genes(adata, verbose=True, return_varnames=False, **kwargs):

@@ -1,5 +1,6 @@
 import warnings
 import os
+import functools
 from pathlib import Path
 from typing import MutableMapping
 import shutil
@@ -18,9 +19,9 @@ from dask import config as da_config
 da_config.set(**{'array.slicing.split_large_chunks': False})
 
 from .subset_slots import subset_slot, set_mask_per_slot
-from .misc import dask_compute
+from .misc import dask_compute, ensure_sparse
 
-
+_INT32_INFO = np.iinfo(np.int32)
 ALL_SLOTS = ['X', 'obs', 'var', 'obsm', 'varm', 'obsp', 'varp', 'layers', 'uns', 'raw']
 
 
@@ -228,7 +229,7 @@ def read_partial(
 
         shapes = {
             k: _shape(v)
-            for k, v in slots.items() if hasattr(v,'shape') or isinstance(v,dict)
+            for k, v in slots.items() if hasattr(v,'shape') or isinstance(v,dict) and k != 'uns'
         }
         message = f'Error reading {file}\nshapes: {pformat(shapes)}'
         raise ValueError(message) from e
@@ -334,13 +335,14 @@ def _read_slot_dask(
             elem = sparse_dataset(elem)
             return sparse_dataset_as_dask(elem, stride=stride)
         print_flushed(f'Read {slot} as sparse dask array...', verbose=verbose)
+        indptr_dtype, indices_dtype = _optimal_sparse_index_dtypes(elem)
         elem = read_as_dask_array(elem, chunks=chunks, verbose=verbose)
-        return elem.map_blocks(csr_matrix_int64_indptr, dtype=elem.dtype)
+        fn = functools.partial(csr_matrix_int64_indptr, indptr_dtype=indptr_dtype, indices_dtype=indices_dtype)
+        return elem.map_blocks(fn, dtype=elem.dtype)
     
     elif iospec.encoding_type in force_sparse_types or force_slot_sparse:
         print_flushed(f'Read {slot} as dask array and convert blocks to csr_matrix...', verbose=verbose)
-        elem = read_as_dask_array(elem, chunks=chunks, verbose=verbose)
-        return elem.map_blocks(csr_matrix_int64_indptr, dtype=elem.dtype)
+        return read_as_dask_array(elem, chunks=chunks, verbose=verbose)
     
     elif iospec.encoding_type == "array":
         print_flushed(f'Read {slot} as dask array...', verbose=verbose)
@@ -365,14 +367,27 @@ def _read_slot_default(group, slot, force_sparse_types, force_slot_sparse, backe
         return read_elem(elem)
 
 
-def csr_matrix_int64_indptr(x):
+def _optimal_sparse_index_dtypes(elem_group):
+    """Determine optimal int dtypes for CSR/CSC index arrays from zarr metadata only (no data loaded)."""
+    total_nnz = elem_group['indices'].shape[0]
+    shape = elem_group.attrs.get('shape', None)
+    n_minor = shape[1] if shape is not None and len(shape) > 1 else None
+    indptr_dtype = np.int32 if total_nnz <= _INT32_INFO.max else np.int64
+    indices_dtype = np.int32 if n_minor is None or (n_minor - 1) <= _INT32_INFO.max else np.int64
+    print('dtypes', indptr_dtype, indices_dtype, flush=True)
+    return indptr_dtype, indices_dtype
+
+
+def csr_matrix_int64_indptr(x, indptr_dtype=None, indices_dtype=None):
+    """Cast csr_matrix index arrays to the smallest safe integer dtype.
+
+    When dtypes are supplied (derived from global array metadata), they are used
+    directly. Otherwise the dtype is inferred per-block from local min/max values.
+    """
     if not isinstance(x, csr_matrix):
         x = csr_matrix(x)
-    if isinstance(x.indptr, np.int32):
-        x.indptr = x.indptr.astype(np.int64)
-    if isinstance(x.indices, np.int32):
-        # seems to be necessary to avoid "ValueError: Output dtype not compatible with inputs."
-        x.indices = x.indices.astype(np.int64)
+    x.indptr = x.indptr.astype(indptr_dtype)
+    x.indices = x.indices.astype(indices_dtype)
     return x
 
 
@@ -443,19 +458,12 @@ def read_anndata_or_mudata(file):
 
 
 def write_zarr(adata, file, compute=False):
-    def sparse_coo_to_csr(matrix):
-        from dask import array as da
-        
-        if isinstance(matrix, da.Array) and type(matrix._meta).__name__ == 'COO':
-            matrix = matrix.map_blocks(lambda x: x.tocsr(), dtype=matrix.dtype)
-        return matrix
-    
     if adata.is_view:
         adata = adata.copy()
 
-    adata.X = sparse_coo_to_csr(adata.X)
-    for layer in adata.layers:
-        adata.layers[layer] = sparse_coo_to_csr(adata.layers[layer])
+    # Convert any sparse COO variants (sparse.COO, scipy coo_matrix, non-Dask)
+    # to CSR before writing, since the zarr writer requires indptr (CSR/CSC only).
+    adata = ensure_sparse(adata)
         
     # fix dtype for NaN obs columns
     for col in adata.obs.columns:
