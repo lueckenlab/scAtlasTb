@@ -58,6 +58,7 @@ if label_key is not None and label_key != 'None':
     clean_categorical_column(adata, label_key)
 
 # subset features
+all_var_names = adata.var_names.copy()
 adata, _ = subset_hvg(adata, var_column='integration_features')
 
 # prepare data for model
@@ -107,5 +108,7 @@ write_zarr_linked(
     adata,
     input_file,
     output_file,
-    files_to_keep=['X', 'obsm', 'var', 'varm', 'varp', 'uns']
+    files_to_keep=['X', 'obsm', 'var', 'varm', 'varp', 'uns'],
+    # subset linked feature slots (e.g. layers) to the integration features
+    subset_mask=(None, all_var_names.isin(adata.var_names)),
 )
