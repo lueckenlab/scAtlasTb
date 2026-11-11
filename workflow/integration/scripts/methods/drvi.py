@@ -1,5 +1,6 @@
 import torch
 import drvi
+import scvi
 from pathlib import Path
 from pprint import pformat
 from matplotlib import pyplot as plt
@@ -24,7 +25,9 @@ params = snakemake.params
 batch_key = wildcards.batch
 
 torch.set_float32_matmul_precision('medium')
-# drvi.settings.seed = params.get('seed', 0)
+# drvi has no settings object; it trains through scvi-tools, whose global seed
+# seeds torch, numpy and python
+scvi.settings.seed = params.get('seed', 0)
 # drvi.settings.progress_bar_style = 'tqdm'
 # drvi.settings.num_threads = snakemake.threads
 dask.config.set(scheduler='threads', num_workers=snakemake.threads)
