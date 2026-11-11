@@ -46,6 +46,7 @@ logging.info(
 # set correct early_stopping parameters
 if train_params.pop('early_stopping', False):
     train_params |= dict(
+        early_stopping=True,
         log_every_n_steps=train_params.get('log_every_n_steps', 1),
         check_val_every_n_epoch=train_params.get('check_val_every_n_epoch', 1),
         val_check_interval=train_params.get('val_check_interval', 1.0),
