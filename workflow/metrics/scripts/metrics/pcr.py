@@ -39,11 +39,10 @@ def pcr_y(adata, output_type, batch_key, label_key, adata_raw, **kwargs):
 
     if output_type == 'knn':
         return np.nan
-    
-    adata_raw = dask_compute(adata_raw, layers='X')
-    X_pre = adata_raw.X
-    X_post = adata.obsm['X_emb'] if output_type == 'embed' else adata.X
-    X_pre, X_post = [X if isinstance(X, np.ndarray) else X.todense() for X in [X_pre, X_post]]
+
+    X_pre = adata_raw.obsm['X_pca']
+    X_post = adata.obsm['X_emb'] if output_type == 'embed' else adata.obsm['X_pca']
+    X_pre, X_post = [X if isinstance(X, np.ndarray) else np.asarray(X.todense()) for X in [X_pre, X_post]]
 
     return scib_metrics.pcr_comparison(
         X_pre=X_pre,
