@@ -1,5 +1,12 @@
 # Changelog
 
+## 13.11.2026 Sample representation: pseudobulk from scatlastb_utils
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/407
+
+- Pseudobulks are computed with `scatlastb_utils` (`atl.pp.pseudobulk`, legacy mode) instead of the local implementation.
+- The `scanpy` env installs `scatlastb_utils` from GitHub and no longer includes `louvain`.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
