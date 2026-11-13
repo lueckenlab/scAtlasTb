@@ -39,3 +39,12 @@ workflows/clustering
 workflows/label_harmonization
 ```
 
+
+```{toctree}
+:caption: API
+:name: api-toc
+:hidden:
+:maxdepth: 1
+
+api/index
+```

@@ -15,6 +15,8 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "extensions"))
+# make workflow/utils importable as `utils`, the same way Snakefiles and scripts import it
+sys.path.insert(0, str(HERE.parent / "workflow"))
 
 
 # -- Project information -----------------------------------------------------
@@ -64,6 +66,11 @@ extensions = [
 
 autosummary_generate = True
 autodoc_member_order = "groupwise"
+autoclass_content = "both"  # constructor parameters are documented in __init__
+# the API reference imports workflow/utils, whose dependencies are not part of the docs environment
+autodoc_mock_imports = [
+    "anndata", "dask", "h5py", "numpy", "pandas", "scipy", "snakemake", "sparse", "tqdm", "zarr",
+]
 default_role = "literal"
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
@@ -97,6 +104,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -128,6 +136,10 @@ nitpick_ignore = [
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
+    # Snakemake has no API reference to link to
+    ("py:class", "snakemake.io.Wildcards"),
+    ("py:class", "snakemake.rules.Rule"),
+    ("py:class", "snakemake.utils.Paramspace"),
 ]
 
 

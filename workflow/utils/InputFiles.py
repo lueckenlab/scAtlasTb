@@ -8,6 +8,14 @@ from .misc import create_hash
 
 
 class InputFiles:
+    """
+    Input files of a module per dataset, each identified by a file id.
+
+    Parses ``DATASETS.<dataset>.input.<module>`` from the config, which can be a single file,
+    a list of files or a mapping of file ids to files (see :ref:`input-file-mapping`).
+    The mapping is written to ``<output_directory>/input_files.tsv``.
+    Usually accessed through :class:`~utils.ModuleConfig.ModuleConfig`.
+    """
 
     def __init__(
         self,
@@ -16,8 +24,9 @@ class InputFiles:
         output_directory: [str, Path] = None,
     ):
         """
-        module_name: name of the module, needed for querying the config
-        config: config containing dataset name, inputs and module parameters
+        :param module_name: name of the module, needed for querying the config
+        :param dataset_config: config per dataset, containing inputs and module parameters
+        :param output_directory: directory to write ``input_files.tsv`` to, no file is written if None
         """
         self.module_name = module_name
         self.config = dataset_config
