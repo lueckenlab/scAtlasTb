@@ -1,5 +1,16 @@
 # Changelog
 
+## 13.11.2026 Relabel: fix 'nan' values, add constant and inline merge columns
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/397
+
+- Fix: `rename_columns` wrote the string `'nan'` into new columns when the source column was missing. It now skips them with a warning.
+- New `constant_columns` adds columns with a fixed value.
+- `merge_columns` can be given inline in the config instead of a mapping file.
+
+### BREAKING CHANGE
+- `new_columns` with several ordered columns are merged in one step instead of one after another, so columns created earlier in the list can no longer be used as keys later in it.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
