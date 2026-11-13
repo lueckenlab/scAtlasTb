@@ -1,5 +1,14 @@
 # Changelog
 
+## 13.11.2026 Marker genes: group order and matrix plots
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/395
+
+- New `plot.group_order` sets the group order in user marker gene plots (list, comma-separated string, file, or a dict per group).
+- User marker genes are also shown as matrix plots, next to the dot plots.
+- `rank_genes_groups` writes an empty result instead of failing on groups that are too small (`min_groups_size`, `min_cells`).
+- The `plot_user` rule moved to `rules/user_genes.smk`; rule names are unchanged.
+
 ## 13.11.2026 Utils: operator queries and simpler sparse dask reads
 
 PR: https://github.com/lueckenlab/scAtlasTb/pull/394
