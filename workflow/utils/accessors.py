@@ -88,7 +88,9 @@ def _filter_batch(adata, batch_key=None, min_cells=10):
         print(f'Keeping {len(keep_batches)} out of {len(cells_per_batch)} batches with at least {min_cells} cells')
 
     # Series.isin returns False for missing labels, so these observations drop.
-    return batch_values.isin(keep_batches).to_numpy()
+    # dtype=bool: nullable batch columns give a nullable Boolean result, which pandas < 2.2
+    # converts to an object array that AnnData does not accept as a mask
+    return batch_values.isin(keep_batches).to_numpy(dtype=bool)
 
 
 def _filter_genes(adata, verbose=True, return_varnames=False, **kwargs):

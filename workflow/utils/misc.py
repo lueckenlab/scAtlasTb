@@ -173,10 +173,15 @@ def ensure_sparse(adata, layers: [str, list] = None, sparse_type=None, **kwargs)
     def to_sparse(matrix, sparse_type=None):
         from scipy.sparse import csr_matrix
         from dask import array as da
-        
+        from anndata.experimental import CSRDataset, CSCDataset
+
         if matrix is None:
             return matrix
-        
+
+        # backed sparse datasets (backed=True, dask=False) are written by anndata as they are
+        if isinstance(matrix, (CSRDataset, CSCDataset)):
+            return matrix
+
         if sparse_type is None:
             sparse_type = csr_matrix
 
