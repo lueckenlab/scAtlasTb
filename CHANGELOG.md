@@ -1,5 +1,11 @@
 # Changelog
 
+## 13.11.2026 New conda environments
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/408
+
+- Adds `deg`, `scarf`, `scimilarity` and `seurat` environments for upcoming modules. No rule uses them yet.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
