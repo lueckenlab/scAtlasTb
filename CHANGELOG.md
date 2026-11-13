@@ -1,5 +1,12 @@
 # Changelog
 
+## 13.11.2026 Docs: API reference
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/412
+
+- New API section in the docs for the workflow helpers: `ModuleConfig`, `WildcardParameters`, `InputFiles` and `get_env` (building the workflow), `read_anndata` and `write_zarr_linked` (reading and writing data), and matrix helpers such as `dask_compute` and `ensure_sparse`.
+- `ModuleConfig`, `InputFiles` and `get_env` are fully documented, including an example Snakefile.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
