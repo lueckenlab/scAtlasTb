@@ -1,7 +1,7 @@
 output_dir: test/out
 images: test/images
 
-use_gpu: false
+use_gpu: true
 env_mode: local
 
 resources:
@@ -29,6 +29,7 @@ defaults:
     - harmony
     - scarches
     - scvi_tools
+    - scanvi_hlca
     - drvi
     - sysvi
 
@@ -206,6 +207,48 @@ DATASETS:
         - bulk_labels
         - phase
         - percent_mito
+
+  scanvi_hlca:
+    input:
+      integration:
+        orig: test/input/pbmc68k.h5ad
+    integration:
+      threads: 3
+      label: bulk_labels
+      batch: batch
+      methods:
+        scanvi: 
+          n_layers: 2
+          n_latent: 30
+          encode_covariates: true
+          deeply_inject_covariates: false
+          use_layer_norm: both
+          use_batch_norm: none
+          gene_likelihood: nb
+          
+          # scVI trainoing parameters
+          max_epochs: 500
+          early_stopping: true
+          early_stopping_monitor: elbo_validation
+          early_stopping_patience: 10
+          early_stopping_min_delta: 0.0
+          plan_kwargs:
+            reduce_lr_on_plateau: true
+            lr_patience: 8
+            lr_factor: 0.1
+            weight_decay: 0.0
+          
+          # scANVI parameters
+          scanvi_max_epochs: 200
+          scanvi_early_stopping: true
+          scanvi_early_stopping_monitor: validation_accuracy
+          scanvi_early_stopping_patience: 10
+          scanvi_early_stopping_min_delta: 0.001
+          scanvi_plan_kwargs:
+            reduce_lr_on_plateau: true
+            lr_patience: 8
+            lr_factor: 0.1
+            weight_decay: 0.0
 
   sysvi:
     input:

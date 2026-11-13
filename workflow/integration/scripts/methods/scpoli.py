@@ -6,6 +6,9 @@ from scarches.models.scpoli import scPoli
 from pprint import pformat
 from pathlib import Path
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import add_metadata, get_hyperparams, remove_slots, \
     set_model_history_dtypes, plot_model_history, clean_categorical_column
 from scArches_utils import SCPOLI_MODEL_PARAMS, SCPOLI_EARLY_STOPPING
@@ -28,6 +31,7 @@ if label_key == 'None':
 
 torch.manual_seed(params.get('seed', 0))
 torch.set_num_threads(snakemake.threads)
+dask.config.set({'num_workers': snakemake.threads})
 
 model_params, train_params = get_hyperparams(
     hyperparams=params.get('hyperparams', {}),

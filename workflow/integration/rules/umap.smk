@@ -6,7 +6,11 @@ use rule umap from preprocessing as integration_compute_umap with:
         rep=rules.integration_postprocess.output.zarr,
     output:
         zarr=directory(out_dir / f'{paramspace.wildcard_pattern}.zarr'),
-    threads: 10
+    threads:
+        lambda wildcards: max(
+            1,
+            mcfg.get_from_parameters(wildcards, 'threads', exclude=['output_type']),
+        )
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='partition',attempt=attempt, attempt_to_cpu=2),
         qos=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='qos',attempt=attempt, attempt_to_cpu=2),
@@ -37,6 +41,13 @@ use rule plots from preprocessing as integration_plot_umap with:
         min_cells_per_category=0.0001,
         plot_centroids=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('plot_centroids', []),
         gene_chunk_size=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('plot_gene_chunk_size', 12),
+        add_outline=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('add_outline', False),
+        max_label_length=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('max_label_length', 10),
+    threads:
+        lambda wildcards: max(
+            1,
+            mcfg.get_from_parameters(wildcards, 'threads', exclude=['output_type']),
+        )
     resources:
         partition=mcfg.get_resource(profile='cpu',resource_key='partition'),
         qos=mcfg.get_resource(profile='cpu',resource_key='qos'),

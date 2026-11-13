@@ -4,6 +4,9 @@ logging.basicConfig(level=logging.INFO)
 import scanpy as sc
 import scanorama
 
+import dask
+dask.config.set(scheduler='threads')
+
 from integration_utils import add_metadata, remove_slots, clean_categorical_column
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import subset_hvg
@@ -38,6 +41,9 @@ def merge_adata(adata_list, **kwargs):
 input_file = snakemake.input[0]
 output_file = snakemake.output[0]
 wildcards = snakemake.wildcards
+
+import dask
+dask.config.set({'num_workers': snakemake.threads})
 batch_key = wildcards.batch
 params = snakemake.params
 

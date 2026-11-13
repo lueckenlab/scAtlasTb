@@ -42,10 +42,12 @@ paramspace = mcfg.get_paramspace()
 
 
 os.environ['LD_LIBRARY_PATH'] = os.environ['CONDA_EXE'].replace('bin/conda', 'lib')
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 
 envvars:
     'LD_LIBRARY_PATH',
+    'PYTORCH_CUDA_ALLOC_CONF',
     'TF_CPP_MIN_LOG_LEVEL',
 
 wildcard_constraints:

@@ -1,5 +1,15 @@
 # Changelog
 
+## 13.11.2026 Integration: consistent threading, GPU fallback
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/402
+
+- All methods use as many dask threads as Snakemake assigns to the job.
+- `harmony_pytorch` runs on GPU when available and falls back to CPU when the GPU runs out of memory.
+- scANVI keeps the checkpoint with the best `validation_accuracy` and reloads it if training fails.
+- Resource defaults: 8 h time limit (was 2 days), no retries (was 2).
+- Accepted hyperparameters updated for newer sysVI and DRVI versions.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361

@@ -1,20 +1,5 @@
 attempt_to_cpu = 2
 
-def get_threads(wildcards, attempt):
-    use_gpu = mcfg.get_profile(wildcards) == 'gpu'
-    if use_gpu and attempt <= attempt_to_cpu:
-        return 1
-    return max(
-        1,
-        mcfg.get_from_parameters(
-            wildcards,
-            'threads',
-            exclude=['output_type'],
-            default=1
-        )
-    )
-
-
 rule prepare:
     message:
         """
@@ -35,10 +20,13 @@ rule prepare:
     conda:
         get_env(config, 'scanpy')
     threads:
-        lambda wildcards: mcfg.get_for_dataset(
-            dataset=wildcards.dataset,
-            query=[mcfg.module_name, 'threads'],
-            default=1
+        lambda wildcards: max(
+            1,
+            mcfg.get_for_dataset(
+                dataset=wildcards.dataset,
+                query=[mcfg.module_name, 'threads'],
+                default=5,
+            )
         )
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='partition',attempt=attempt),
@@ -81,15 +69,19 @@ use rule run_method from integration as integration_run_method with:
         output_type=lambda wildcards: mcfg.get_from_parameters(wildcards, 'output_types', exclude=['output_type']),
         hyperparams=lambda wildcards: mcfg.get_from_parameters(wildcards, 'hyperparams_dict', exclude=['output_type']),
         seed=lambda wildcards: mcfg.get_from_parameters(wildcards, 'seed', exclude=['output_type'], default=0),
-        env=lambda wildcards: mcfg.get_from_parameters(wildcards, 'env', exclude=['output_type']),
+    conda:
+        lambda wildcards: get_env(config, mcfg.get_from_parameters(wildcards, 'env', exclude=['output_type']))
     threads:
-        lambda wildcards, attempt: get_threads(wildcards, attempt)
+        lambda wildcards: max(
+            1,
+            mcfg.get_from_parameters(wildcards, 'threads', exclude=['output_type'], default=5),
+        )
     resources:
         partition=lambda w, attempt: mcfg.get_resource(resource_key='partition', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
         qos=lambda w, attempt: mcfg.get_resource(resource_key='qos', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
         mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu, factor=3),
         gpu=lambda w, attempt: mcfg.get_resource(resource_key='gpu', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
-        time="2-00:00:00",
+        time="0-08:00:00",
 
 
 def update_neighbors_args(wildcards):
@@ -119,7 +111,7 @@ use rule neighbors from preprocessing as integration_postprocess with:
     params:
         args=update_neighbors_args,
         extra_uns=lambda wildcards: {'output_type': wildcards.output_type},
-    retries: 2
+    retries: 0
     resources:
         partition=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='partition',attempt=attempt),
         qos=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='qos',attempt=attempt),

@@ -1,5 +1,10 @@
 import warnings
 warnings.filterwarnings("ignore", message="Can't initialize NVML")
+warnings.filterwarnings(
+    "ignore",
+    message="The value argument must be within the support of the distribution",
+    category=UserWarning,
+)
 
 import torch
 import scvi
@@ -9,6 +14,9 @@ from math import ceil
 from lightning.pytorch.callbacks import TQDMProgressBar
 import logging
 logging.basicConfig(level=logging.INFO)
+
+import dask
+dask.config.set(scheduler='threads')
 
 from integration_utils import add_metadata, get_hyperparams, remove_slots, set_model_history_dtypes, \
     SCVI_MODEL_PARAMS, plot_model_history, clean_categorical_column
@@ -29,6 +37,7 @@ torch.set_float32_matmul_precision('medium')
 scvi.settings.seed = params.get('seed', 0)
 # scvi.settings.progress_bar_style = 'tqdm'
 scvi.settings.num_threads = snakemake.threads
+dask.config.set({'num_workers': snakemake.threads})
 
 model_params, train_params = get_hyperparams(
     hyperparams=params.get('hyperparams', {}),
