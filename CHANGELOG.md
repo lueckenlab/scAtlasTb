@@ -1,5 +1,17 @@
 # Changelog
 
+## 13.11.2026 Preprocessing: adaptive gene filtering and SVG plots
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/396
+
+- Plots are written as SVG and label the PCA axes with explained variance.
+- Default threads lowered from 10 to 4; HVG computation skips dask when there are many batches (`large_batch_threshold`).
+- HVG scripts share common helpers.
+
+### BREAKING CHANGE
+- Without `min_cells` or `min_counts`, genes are filtered with `min_cells = max(10, min(200, ceil(0.001 * n_obs)))` instead of `1`.
+- `rule all` no longer builds plots; run `plots_all` for them.
+
 ## 13.11.2026 Utils: operator queries and simpler sparse dask reads
 
 PR: https://github.com/lueckenlab/scAtlasTb/pull/394
