@@ -1,5 +1,15 @@
 # Changelog
 
+## 13.11.2026 Batch analysis: one-sided PCR test, SVG plots
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/401
+
+- New `pcr_all` target; plots are written as SVG.
+- Theil's U clustermap layout reworked (title, colour bar and margins configurable).
+
+### BREAKING CHANGE
+- The PCR permutation test is one-sided: it tests whether a covariate explains *more* variance than random. P-values differ from earlier results.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
