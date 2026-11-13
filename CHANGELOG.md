@@ -1,5 +1,14 @@
 # Changelog
 
+## 13.11.2026 Merge: keep only shared obs columns
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/404
+
+- Input shapes are read from the files themselves, which also works for symlinked files.
+
+### BREAKING CHANGE
+- Only `.obs` columns present in all input files are kept. Set `keep_all_columns: true` for the old behaviour (all columns, missing values as NaN).
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
