@@ -14,16 +14,36 @@ from utils.io import read_anndata, write_zarr_linked
 def check_same_categories(df, columns):
     first_categories = df[columns[0]].cat.categories
     if not all(df[col].cat.categories.equals(first_categories) for col in columns):
-        logging.warn(f"Columns {columns} have different categories, majority voting might not work correctly")
+        logging.info(
+            "Columns %s have different category sets; categories will be aligned before majority voting.",
+            columns,
+        )
+
+
+def check_category_overlap(df, columns):
+    from functools import reduce
+
+    shared_categories = reduce(
+        pd.Index.intersection,
+        [pd.Index(df[col].dropna().unique()) for col in columns],
+    )
+    if len(shared_categories) == 0:
+        categories_per_col = {
+            col: pd.Index(df[col].dropna().unique()).tolist()
+            for col in columns
+        }
+        raise ValueError(
+            "No overlapping observed labels found across majority-vote columns. "
+            f"Columns: {columns}. Observed labels per column: {pformat(categories_per_col)}"
+        )
 
 
 def mode_counts_per_row(arr, dtype=np.uint8):
     from tqdm import tqdm
 
-
     n_rows, n_cols = arr.shape
     
-    if n_rows > 255:
+    if n_cols > 255:
         dtype = np.int16
 
     modes = np.empty(n_rows, dtype=arr.dtype)
@@ -31,28 +51,20 @@ def mode_counts_per_row(arr, dtype=np.uint8):
 
     miniters = max(1, int(n_rows) / 10)
     for i in tqdm(range(n_rows), desc='Compute majority vote per row', miniters=miniters):
-        unique_vals, counts = np.unique(arr[i], return_counts=True)
-        max_idx = np.argmax(counts)
-        modes[i] = unique_vals[max_idx]
-        mode_counts[i] = counts[max_idx]
-    
-    # shift negative values to non-negative to work with bincount
-    arr_min = arr.min()
-    shift_value = 0 if arr_min >= 0 else -arr_min
-    arr = arr + shift_value
-    
-    # initialize mode array and mode counts
-    max_val = arr.max()
-    modes = np.zeros(n_rows, dtype=arr.dtype)
-    mode_counts = np.zeros(n_rows, dtype=np.uint8)
-
-    for i in range(n_rows):
-        counts = np.bincount(arr[i], minlength=max_val + 1)
-        modes[i] = np.argmax(counts)
-        mode_counts[i] = np.max(counts)
-
-    # restore original values of the modes
-    modes = modes - shift_value
+        # Filter out NaN codes (-1) to avoid selecting them as mode
+        valid = arr[i][arr[i] != -1]
+        
+        if len(valid) == 0:
+            # All values are NaN, set mode to -1
+            modes[i] = -1
+            mode_counts[i] = 0
+        else:
+            # Use bincount for efficiency: O(n_cols) instead of O(n_cols * log(n_cols))
+            # This works because categorical codes are non-negative integers
+            counts = np.bincount(valid.astype(int))
+            max_idx = np.argmax(counts)
+            modes[i] = max_idx
+            mode_counts[i] = counts[max_idx]
 
     return modes, mode_counts
 
@@ -71,11 +83,21 @@ def get_majority_consensus(df, columns, new_key='majority_consensus', threshold=
     
     # Warn if categories aren't the same across columns
     check_same_categories(df, columns)
+    check_category_overlap(df, columns)
 
     # Create a unified categorical dtype
-    categories = reduce(pd.Index.union, [df[col].cat.categories.dropna() for col in columns])
+    categories = reduce(pd.Index.union, [df[col].cat.categories for col in columns])
     cat_dtype = pd.CategoricalDtype(categories=categories)
-    df_cat = df[columns].astype(cat_dtype).apply(lambda x: x.cat.codes)
+
+    # Rebuild category codes from label values to avoid code/category order mismatches
+    # when source categorical dtypes differ across columns.
+    df_cat = pd.DataFrame(
+        {
+            col: pd.Categorical(df[col].astype('object'), dtype=cat_dtype).codes
+            for col in columns
+        },
+        index=df.index,
+    )
     
     majority_votes, mode_count = mode_counts_per_row(df_cat.to_numpy())
     
@@ -96,7 +118,7 @@ input_file = snakemake.input.zarr
 output_file = snakemake.output.zarr
 output_plots = Path(snakemake.output.plots)
 output_plots.mkdir(parents=True, exist_ok=True)
-column_patterns = snakemake.params.get('columns')
+column_patterns = snakemake.params.get('columns', [])
 threshold = snakemake.params.get('threshold', 0.5)
 new_key = 'majority_consensus'
 
@@ -117,7 +139,6 @@ logging.info(f'parsed columns: {columns}')
 
 logging.info('Majority voting...')
 maj_df = get_majority_consensus(adata.obs, columns=columns, new_key=new_key, threshold=threshold)
-adata.obs[maj_df.columns] = maj_df
 
 logging.info('Compute consensus agreement stats...')
 counts = maj_df.value_counts(
@@ -155,6 +176,11 @@ plt.grid(False)
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
 plt.savefig(output_plots / 'majority_consensus_frac.png', bbox_inches='tight')
+
+# add to adata
+adata.obs[maj_df.columns] = maj_df
+logging.info(f'Columns after adding majority consensus: {adata.obs.columns}')
+assert maj_df.columns.isin(adata.obs.columns).all(), 'Not all majority consensus columns were added to adata.obs'
 
 logging.info(f'Write to {output_file}...')
 write_zarr_linked(
