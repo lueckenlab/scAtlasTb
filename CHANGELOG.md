@@ -1,5 +1,11 @@
 # Changelog
 
+## 13.11.2026 Utils: CSR chunks for CSC layers
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/411
+
+- Fix: CSC layers read as dask arrays (e.g. all `layers` with `dask=True`) produced CSC chunks while declaring CSR. Chunks are now converted to CSR.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361

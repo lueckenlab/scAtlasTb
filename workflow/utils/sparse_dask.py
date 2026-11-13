@@ -51,6 +51,9 @@ def make_dask_chunk(x: "SparseDataset", start: int, end: int) -> da.Array:
         except ValueError as e:
             print(f"Error slicing {x} with {idx}")
             raise e
+        # row slices of a CSC dataset stay CSC, but chunks are declared as CSR (meta=CSRCallable)
+        if sliced.format == "csc":
+            sliced = sliced.tocsr()
         return sliced
 
     return da.from_delayed(
