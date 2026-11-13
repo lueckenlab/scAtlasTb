@@ -1,5 +1,13 @@
 # Changelog
 
+## 13.11.2026 Doublets, QC and load data fixes
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/406
+
+- Scrublet only requests GPU resources when `use_gpu` is set.
+- `harmonize_metadata` keeps the original barcodes in `barcode_old`.
+- QC ridge plots are combined into one figure when there is only one facet value.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
