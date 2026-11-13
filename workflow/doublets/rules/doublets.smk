@@ -36,6 +36,10 @@ def get_mem_mb(attempt, profile, factor=2):
     return max(1_000, int(mem_mb // factor))
 
 
+def get_profile_from_use_gpu(wildcards):
+    return 'gpu' if mcfg.get_from_parameters(wildcards, 'use_gpu', default=False) else 'cpu'
+
+
 rule scrublet:
     input:
         zarr=lambda wildcards: mcfg.get_input_file(**wildcards),
@@ -53,10 +57,10 @@ rule scrublet:
             no_gpu=not mcfg.get_from_parameters(wildcards, 'use_gpu', default=False)
         )
     resources:
-        partition=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='partition', attempt=attempt),
-        qos=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='qos', attempt=attempt),
-        gpu=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='gpu', attempt=attempt),
-        mem_mb=lambda w, attempt: get_mem_mb(attempt=attempt, profile='gpu'),
+        partition=lambda w, attempt: mcfg.get_resource(profile=get_profile_from_use_gpu(w), resource_key='partition', attempt=attempt),
+        qos=lambda w, attempt: mcfg.get_resource(profile=get_profile_from_use_gpu(w), resource_key='qos', attempt=attempt),
+        gpu=lambda w, attempt: mcfg.get_resource(profile=get_profile_from_use_gpu(w), resource_key='gpu', attempt=attempt),
+        mem_mb=lambda w, attempt: get_mem_mb(attempt=attempt, profile=get_profile_from_use_gpu(w)),
     script:
         '../scripts/scrublet.py'
 
