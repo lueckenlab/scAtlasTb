@@ -194,14 +194,14 @@ elif n_permute < 100:
     df['signif'] = df['z_score'].apply(lambda x: '**' if x > 3 else '*' if x > 1.5 else '')
     df['p-val'] = df.query('permuted & z_score > 1.5').shape[0] / n_permute
 else:
-    stat = np.abs(df['pcr'] - df['perm_mean'])
+    stat = df['pcr'] - df['perm_mean']
     null = stat.loc[df['permuted']].values
     observed = stat.loc[~df['permuted']].values
     if observed.size != 1:
         raise ValueError('Expected exactly one non-permuted observation for p-value calculation')
 
     df['p-val'] = (np.sum(null >= observed[0]) + 1) / (n_permute + 1)
-    df['signif'] = df['p-val'].apply(lambda x: '**' if x <= 0.01 else '*' if x <= 0.05 else '')  
+    df['signif'] = df['p-val'].apply(lambda x: '**' if x <= 0.01 else '*' if x <= 0.05 else '')
 
 logging.info(f'PCR summary table:\n{df}')
 df.to_csv(output_file, sep='\t', index=False)
