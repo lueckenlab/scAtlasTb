@@ -1,5 +1,13 @@
 # Changelog
 
+## 13.11.2026 Majority voting: fix wrong votes for differently ordered categories
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/399
+
+- Fix: input columns whose categories were ordered differently were matched by category code, which could give wrong votes. Votes now use the label values.
+- Fix: the vote-count dtype was chosen from the wrong axis.
+- Removed a duplicate computation whose result was always overwritten.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
