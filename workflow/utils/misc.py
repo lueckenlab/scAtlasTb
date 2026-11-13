@@ -181,7 +181,7 @@ def ensure_sparse(adata, layers: [str, list] = None, sparse_type=None, **kwargs)
             sparse_type = csr_matrix
 
         def convert_block(block):
-            if isinstance(block, sparse_type):
+            if isinstance(sparse_type, type) and isinstance(block, sparse_type):
                 return block
             if sparse_type is csr_matrix and hasattr(block, 'tocsr'):
                 return block.tocsr()
