@@ -91,7 +91,7 @@ class WildcardParameters:
         # self.paramspace = Paramspace(
         #     self.wildcards_df[self.wildcard_names],
         #     **paramspace_kwargs
-        # )        
+        # )
 
 
     def subset_by_query(
@@ -101,9 +101,38 @@ class WildcardParameters:
         verbose: bool = False,
     ) -> pd.DataFrame:
         """
-        Helper function to subset self.wildcards_df by query dictionary
+        Subset ``wildcards_df`` using scalar, iterable, or operator filters.
         
-        :param query_dict: Mapping of column and value to subset by
+        Scalar values use equality; lists, tuples, and sets select rows whose
+        values are members of the collection. A one-entry operator dictionary
+        can specify ``eq``, ``ne``, ``in``, or ``notin`` (also ``==``, ``!=``,
+        ``isin``, ``not_in``, ``nin``, and ``!in`` respectively). Equality
+        and inequality follow pandas `Series.eq
+        <https://pandas.pydata.org/docs/reference/api/pandas.Series.eq.html>`_
+        and `Series.ne
+        <https://pandas.pydata.org/docs/reference/api/pandas.Series.ne.html>`_
+        semantics. Membership follows `Series.isin
+        <https://pandas.pydata.org/docs/reference/api/pandas.Series.isin.html>`_
+        semantics.
+
+        Examples::
+
+            # Keep rows where the dataset is "study_a" (scalar equality).
+            params.subset_by_query({"dataset": "study_a"})
+
+            # Select any of several values (iterable membership).
+            params.subset_by_query({"batch": ["batch_1", "batch_2"]})
+
+            # Select with explicit equality, inequality, or membership.
+            params.subset_by_query({"n_vars": {"eq": 2000}})
+            params.subset_by_query({"batch": {"ne": "batch_1"}})
+            params.subset_by_query({"dataset": {"in": ["study_a", "study_b"]}})
+            params.subset_by_query({"batch": {"notin": ["batch_1", "batch_3"]}})
+
+        :param query_dict: Mapping of column names to scalar values, iterable
+            membership values, or one-entry operator dictionaries. Supported
+            operators are ``eq``, ``ne``, ``in``, and ``notin`` and their
+            aliases listed above.
         :param columns: columns to subset wildcards_df by
         :return: subset of wildcards_df
         """
@@ -114,15 +143,42 @@ class WildcardParameters:
             columns = self.wildcards_df.columns
         
         df = self.wildcards_df.copy()
+
+        def _as_iterable(x):
+            if isinstance(x, (list, tuple, set, pd.Index, np.ndarray)):
+                return x
+            return [x]
+
+        def _apply_operator_filter(_df, _key, _op, _val):
+            if _op in ('eq', '=='):
+                return _df[_df[_key] == _val]
+            if _op in ('ne', '!='):
+                return _df[_df[_key] != _val]
+            if _op in ('in', 'isin'):
+                return _df[_df[_key].isin(_as_iterable(_val))]
+            if _op in ('notin', 'not_in', 'nin', '!in'):
+                return _df[~_df[_key].isin(_as_iterable(_val))]
+            raise ValueError(
+                f'Unsupported operator "{_op}" for query key "{_key}". '
+                'Use one of: eq, ne, in, notin.'
+            )
+
         # subset by query
         for key, value in query_dict.items():
             if key not in df.columns:
                 continue
-            if isinstance(value, (list, tuple, set)):
+            if isinstance(value, dict):
+                if len(value) != 1:
+                    raise ValueError(
+                        f'Operator query for key "{key}" must have exactly one operator. '
+                        f'Got: {list(value.keys())}'
+                    )
+                op, op_value = next(iter(value.items()))
+                df = _apply_operator_filter(df, key, op, op_value)
+            elif isinstance(value, (list, tuple, set)):
                 df = df[df[key].isin(value)]
             else:
-                # df = df[df[key] == value]
-                df = df.query(f'{key} == @value')
+                df = df[df[key] == value]
             
             if verbose:
                 print(f'subset by {key} ==  {value}')

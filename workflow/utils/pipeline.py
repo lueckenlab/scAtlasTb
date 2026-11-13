@@ -3,6 +3,7 @@ Utils that are specific to the overall pipeline but not the modules
 """
 
 from pathlib import Path
+from pprint import pformat
 
 from .config import _get_or_default_from_config, set_defaults
 from .ModuleConfig import ModuleConfig
@@ -64,8 +65,17 @@ def update_input_files_per_dataset(
     config_class_map: dict[str: ModuleConfig] = None,
     config_kwargs: dict[str: dict] = None,
 ):
+    original_input = config['DATASETS'][dataset]['input'][module_name]
+
     if module_name == first_module:
-        raise ValueError(f'Circle detected: first module {first_module} cannot be an input module')
+        raise ValueError(
+            f"Circular dependency detected in input file resolution: "
+            f"\n{pformat(original_input)}"
+            f"\nThe module '{first_module}' is being used as an input module for itself "
+            f"in dataset '{dataset}'. This indicates a cycle in the module dependencies, "
+            f"likely due to a module as input for '{first_module}' that directly or indirectly depends on '{first_module}' itself."
+            f"Please check your configuration for circular references in the input modules."
+        )
     if first_module is None:
         first_module = module_name
     if config_class_map is None:
@@ -73,7 +83,6 @@ def update_input_files_per_dataset(
     if config_kwargs is None:
         config_kwargs = {}
     
-    original_input = config['DATASETS'][dataset]['input'][module_name]
     # Check if user provided explicit file name mapping (dict) vs simple module reference (string)
     user_provided_mapping = isinstance(original_input, dict)
     

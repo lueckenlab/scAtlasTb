@@ -173,18 +173,30 @@ def ensure_sparse(adata, layers: [str, list] = None, sparse_type=None, **kwargs)
     def to_sparse(matrix, sparse_type=None):
         from scipy.sparse import csr_matrix
         from dask import array as da
-        
+        from anndata.experimental import CSRDataset, CSCDataset
+
         if matrix is None:
             return matrix
-        
+
+        # backed sparse datasets (backed=True, dask=False) are written by anndata as they are
+        if isinstance(matrix, (CSRDataset, CSCDataset)):
+            return matrix
+
         if sparse_type is None:
             sparse_type = csr_matrix
+
+        def convert_block(block):
+            if isinstance(sparse_type, type) and isinstance(block, sparse_type):
+                return block
+            if sparse_type is csr_matrix and hasattr(block, 'tocsr'):
+                return block.tocsr()
+            return sparse_type(block)
 
         if check_sparse(matrix, sparse_type):
             return matrix
         elif isinstance(matrix, da.Array):
-            return matrix.map_blocks(sparse_type, dtype=matrix.dtype)
-        return sparse_type(matrix)
+            return matrix.map_blocks(convert_block, dtype=matrix.dtype)
+        return convert_block(matrix)
 
     return apply_layers(adata, func=to_sparse, layers=layers, sparse_type=sparse_type, **kwargs)
 
@@ -252,8 +264,11 @@ def apply_layers(adata, func, layers:[str, list, bool] = None, verbose: bool = F
         elif layer == 'raw':
             if adata.raw is None:
                 continue
+            raw_x = func(adata.raw.X, **kwargs)
+            if raw_x is adata.raw.X:
+                continue
             adata_raw = adata.raw.to_adata()
-            adata_raw.X = func(adata.raw.X, **kwargs)
+            adata_raw.X = raw_x
             adata.raw = adata_raw
         elif verbose:
             print(f'Layer {layer} not found, skipping...', flush=True)
