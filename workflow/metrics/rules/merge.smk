@@ -20,8 +20,9 @@ rule merge_per_file:
     resources:
         mem_mb=1000,
     retries: 0
-    group:
-        'metrics_postprocess'
+    # group:
+    #     'metrics_postprocess'
+    localrule: True
     script: '../scripts/merge.py'
 
 
@@ -40,8 +41,9 @@ use rule merge_per_file as merge with:
     params:
         wildcards=mcfg.get_wildcards(as_df=True, wildcard_names=metric_wildcards),
         wildcards_string=mcfg.get_wildcards(as_df=True, wildcard_names=metric_wildcards).to_string(index=False),
-    group:
-        'metrics_postprocess'
+    # group:
+    #     'metrics_postprocess'
+    localrule: True
 
 
 use rule merge_per_file as merge_per_dataset with:
@@ -59,8 +61,9 @@ use rule merge_per_file as merge_per_dataset with:
     params:
         wildcards=lambda wildcards: mcfg.get_wildcards(subset_dict=wildcards, exclude='dataset', as_df=True, wildcard_names=metric_wildcards),
         wildcards_string=lambda wildcards: mcfg.get_wildcards(subset_dict=wildcards, exclude='dataset', as_df=True, wildcard_names=metric_wildcards).to_string(index=False),
-    group:
-        'metrics_postprocess'
+    # group:
+    #     'metrics_postprocess'
+    localrule: True
 
 
 use rule merge_per_file as merge_per_batch with:
@@ -78,8 +81,9 @@ use rule merge_per_file as merge_per_batch with:
     params:
         wildcards=lambda wildcards: mcfg.get_wildcards(subset_dict=wildcards, exclude='batch', as_df=True, wildcard_names=metric_wildcards),
         wildcards_string=lambda wildcards: mcfg.get_wildcards(subset_dict=wildcards, exclude='batch', as_df=True, wildcard_names=metric_wildcards).to_string(index=False),
-    group:
-        'metrics_postprocess'
+    # group:
+    #     'metrics_postprocess'
+    localrule: True
 
 
 use rule merge_per_file as merge_per_label with:
@@ -97,29 +101,47 @@ use rule merge_per_file as merge_per_label with:
     params:
         wildcards=lambda wildcards: mcfg.get_wildcards(subset_dict=wildcards, exclude='label', as_df=True, wildcard_names=metric_wildcards),
         wildcards_string=lambda wildcards: mcfg.get_wildcards(subset_dict=wildcards, exclude='label', as_df=True, wildcard_names=metric_wildcards).to_string(index=False),
-    group:
-        'metrics_postprocess'
+    # group:
+    #     'metrics_postprocess'
+    localrule: True
+
+
+
+def get_collect_input(wildcards):
+    files = dict(
+        zarr=mcfg.get_input_file(**wildcards),
+        metrics=rules.merge_per_file.output.tsv,
+    )
+
+    if sum(mcfg.get_from_parameters(wildcards, 'use_gene_set', single_value=False)) > 0:
+        gene_scores = mcfg.get_output_files(rules.score_genes.output, subset_dict=wildcards)
+        files['gene_scores'] = gene_scores
+    
+    return files
 
 
 rule collect:
     message:
         """
         Collect all metrics for {wildcards}
-        input.zarr: {input.zarr}
-        input.metrics: {input.metrics}
+        input: {input}
         """
     input:
-        zarr=lambda wildcards: mcfg.get_input_file(**wildcards),
-        metrics=rules.merge_per_file.output.tsv,
+        unpack(get_collect_input)
     output:
         zarr=directory(mcfg.out_dir / f'{paramspace.wildcard_pattern}.zarr'),
     conda:
         get_env(config, 'scanpy')
+    localrule: True
     script:
         '../scripts/collect.py'
 
 
 rule collect_all:
+    message:
+        """
+        Collect all metrics for all datasets and methods
+        """
     input:
         mcfg.get_output_files(rules.collect.output),
     localrule: True

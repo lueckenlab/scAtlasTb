@@ -1,5 +1,17 @@
 # Changelog
 
+## 13.11.2026 Metrics: funkyheatmap grouping and SVG output
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/403
+
+- Funkyheatmap: per-group scaling (`scale_by_group`), custom order (`metric_order`, `group_col_order`), summary columns from `prefix:dataset` metrics, and `n_top` per group.
+- Gene scores (`gene_score:*`) are collected when `use_gene_set` is configured.
+- Fix: `cell_cycle` returns NaN instead of 0 when no cell cycle genes are found.
+- Lighter PCR and kBET thread settings; post-processing rules run locally instead of as a job group.
+
+### BREAKING CHANGE
+- The funkyheatmap is written as SVG instead of PDF (needs `r-svglite` in the `funkyheatmap` env).
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361

@@ -25,4 +25,5 @@ dependencies:
   - r-rdpack
   - r-vctrs=0.6.4
   - r-patchwork
+  - r-svglite
   - pandas<3
