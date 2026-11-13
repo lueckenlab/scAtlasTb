@@ -1,5 +1,11 @@
 # Changelog
 
+## 13.11.2026 Utils: fix ModuleConfig.get_defaults
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/413
+
+- Fix: `ModuleConfig.get_defaults()` returned `{}`, and `get_defaults('<module>')` returned the current module's defaults instead of the requested module's.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361

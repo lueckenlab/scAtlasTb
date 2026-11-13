@@ -161,8 +161,11 @@ class ModuleConfig:
     def get_defaults(self, module_name: str = None):
         """
         Get defaults for module
+
+        :param module_name: module to get defaults for, defaults to this module
+        :return: copy of ``config['defaults'][module_name]``, empty if not set
         """
-        if module_name is not None:
+        if module_name is None:
             module_name = self.module_name
         return self.config['defaults'].get(module_name, {}).copy()
 
