@@ -1,5 +1,12 @@
 # Changelog
 
+## 13.11.2026 Collect: only suffix colliding columns
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/398
+
+- Only columns that differ between files and appear in at least two files get a file suffix. Columns unique to one file keep their name.
+- Files are aligned on the genes they have in common instead of failing when gene sets differ.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
