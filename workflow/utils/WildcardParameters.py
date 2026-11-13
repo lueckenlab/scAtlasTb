@@ -101,13 +101,38 @@ class WildcardParameters:
         verbose: bool = False,
     ) -> pd.DataFrame:
         """
-        Helper function to subset self.wildcards_df by query dictionary
+        Subset ``wildcards_df`` using scalar, iterable, or operator filters.
         
-        :param query_dict: Mapping of column and value to subset by.
-            Values can be:
-            - scalar: equality filter
-            - list/tuple/set: inclusion filter
-            - dict with operator, e.g. {'notin': [False, 'False']}
+        Scalar values use equality; lists, tuples, and sets select rows whose
+        values are members of the collection. A one-entry operator dictionary
+        can specify ``eq``, ``ne``, ``in``, or ``notin`` (also ``==``, ``!=``,
+        ``isin``, ``not_in``, ``nin``, and ``!in`` respectively). Equality
+        and inequality follow pandas `Series.eq
+        <https://pandas.pydata.org/docs/reference/api/pandas.Series.eq.html>`_
+        and `Series.ne
+        <https://pandas.pydata.org/docs/reference/api/pandas.Series.ne.html>`_
+        semantics. Membership follows `Series.isin
+        <https://pandas.pydata.org/docs/reference/api/pandas.Series.isin.html>`_
+        semantics.
+
+        Examples::
+
+            # Keep rows where the dataset is "study_a" (scalar equality).
+            params.subset_by_query({"dataset": "study_a"})
+
+            # Select any of several values (iterable membership).
+            params.subset_by_query({"batch": ["batch_1", "batch_2"]})
+
+            # Select with explicit equality, inequality, or membership.
+            params.subset_by_query({"n_vars": {"eq": 2000}})
+            params.subset_by_query({"batch": {"ne": "batch_1"}})
+            params.subset_by_query({"dataset": {"in": ["study_a", "study_b"]}})
+            params.subset_by_query({"batch": {"notin": ["batch_1", "batch_3"]}})
+
+        :param query_dict: Mapping of column names to scalar values, iterable
+            membership values, or one-entry operator dictionaries. Supported
+            operators are ``eq``, ``ne``, ``in``, and ``notin`` and their
+            aliases listed above.
         :param columns: columns to subset wildcards_df by
         :return: subset of wildcards_df
         """

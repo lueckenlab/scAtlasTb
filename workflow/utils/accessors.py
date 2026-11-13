@@ -55,12 +55,30 @@ def select_neighbors(adata, output_type):
 
 def _filter_batch(adata, batch_key=None, min_cells=10):
     """
-    Filter cells from batches with too few cells
+    Return a Boolean observation mask retaining batches with enough cells.
+
+    Batches with fewer than ``min_cells`` observations are excluded, as are
+    observations with a missing value for ``batch_key``. The threshold is
+    inclusive: batches with exactly ``min_cells`` observations are retained.
+    If ``batch_key`` is ``None``, every observation is retained. If no batch
+    meets the threshold (including when all batch values are missing), the
+    returned mask is all ``False``.
+
+    :param adata: AnnData object whose observations are to be filtered.
+    :param batch_key: Column in ``adata.obs`` containing batch labels, or
+        ``None`` to retain all observations.
+    :param min_cells: Minimum number of observations required to retain a
+        batch.
+    :return: NumPy Boolean array of length ``adata.n_obs``.
+
+    For example, ``_filter_batch(adata, "batch", min_cells=10)`` retains
+    observations belonging to batches represented by at least 10 cells.
     """
     if batch_key is None:
         return np.ones(adata.n_obs, dtype=bool)
 
     batch_values = adata.obs[batch_key]
+    # Missing labels must not contribute to any batch's cell count.
     cells_per_batch = batch_values.dropna().value_counts()
     if cells_per_batch.empty:
         return np.zeros(adata.n_obs, dtype=bool)
@@ -69,6 +87,7 @@ def _filter_batch(adata, batch_key=None, min_cells=10):
     if len(keep_batches) < len(cells_per_batch):
         print(f'Keeping {len(keep_batches)} out of {len(cells_per_batch)} batches with at least {min_cells} cells')
 
+    # Series.isin returns False for missing labels, so these observations drop.
     return batch_values.isin(keep_batches).to_numpy()
 
 
