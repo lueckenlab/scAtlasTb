@@ -1,5 +1,14 @@
 # Changelog
 
+## 13.11.2026 Clustering: merged rule files, configurable plot threads
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/400
+
+- `rules/postprocessing.smk` is merged into `rules/clustering.smk`; rule names are unchanged.
+- Threads for the UMAP and evaluation plots are configurable (`threads`).
+- Enrichment plots close their figures and no longer hold all results in memory at once.
+- `cluster_all` also builds each per-parameter clustering output, not just the merged one.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361

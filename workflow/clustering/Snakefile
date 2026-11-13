@@ -24,6 +24,7 @@ mcfg = ClusteringConfig(
         'use_gpu',
         'n_cell_cpu',
         'plots',
+        'threads',
     ],
     # wildcard_names=['algorithm', 'resolution'],
     rename_config_params={'resolutions': 'resolution'},
@@ -32,6 +33,7 @@ mcfg = ClusteringConfig(
         'recompute_neighbors': bool,
         'recompute_umap': bool,
         'resolution': str,
+        'threads': int,
         # 'overwrite': bool,
         # 'use_gpu': bool,
     },
@@ -57,13 +59,19 @@ module clustering:
     config: config
 
 include: 'rules/clustering.smk'
-include: 'rules/postprocessing.smk'
 include: 'rules/plots.smk'
 
 
 rule cluster_all:
     input:
-        mcfg.get_output_files(rules.clustering_merge.output)
+        [
+            mcfg.get_output_files(
+                rules.clustering_cluster.output.zarr,
+                subset_dict=dict(dataset=dataset),
+                all_params=True
+            ) for dataset in mcfg.get_datasets()
+        ],
+        mcfg.get_output_files(rules.clustering_merge.output),
     localrule: True
 
 rule all:
