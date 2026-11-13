@@ -1,6 +1,5 @@
 import warnings
 import os
-import functools
 from pathlib import Path
 from typing import MutableMapping
 import shutil
@@ -21,7 +20,6 @@ da_config.set(**{'array.slicing.split_large_chunks': False})
 from .subset_slots import subset_slot, set_mask_per_slot
 from .misc import dask_compute, ensure_sparse
 
-_INT32_INFO = np.iinfo(np.int32)
 ALL_SLOTS = ['X', 'obs', 'var', 'obsm', 'varm', 'obsp', 'varp', 'layers', 'uns', 'raw']
 
 
@@ -329,21 +327,19 @@ def _read_slot_dask(
     elem = group[slot]
     iospec = ad._io.specs.get_spec(elem)
     
-    if iospec.encoding_type in ("csr_matrix", "csc_matrix"):
-        if backed:
-            print_flushed(f'Read {slot} as backed sparse dask array...', verbose=verbose)
-            elem = sparse_dataset(elem)
-            return sparse_dataset_as_dask(elem, stride=stride)
+    is_sparse = iospec.encoding_type in ("csr_matrix", "csc_matrix")
+
+    if is_sparse and backed:
+        print_flushed(f'Read {slot} as backed sparse dask array...', verbose=verbose)
+        return sparse_dataset_as_dask(sparse_dataset(elem), stride=stride)
+
+    elif is_sparse or iospec.encoding_type in force_sparse_types or force_slot_sparse:
+        # csr_matrix leaves csr blocks untouched and converts dense/csc blocks; scipy picks the
+        # smallest safe index dtype per block, anndata casts to int64 on write
         print_flushed(f'Read {slot} as sparse dask array...', verbose=verbose)
-        indptr_dtype, indices_dtype = _optimal_sparse_index_dtypes(elem)
         elem = read_as_dask_array(elem, chunks=chunks, verbose=verbose)
-        fn = functools.partial(csr_matrix_int64_indptr, indptr_dtype=indptr_dtype, indices_dtype=indices_dtype)
-        return elem.map_blocks(fn, dtype=elem.dtype)
-    
-    elif iospec.encoding_type in force_sparse_types or force_slot_sparse:
-        print_flushed(f'Read {slot} as dask array and convert blocks to csr_matrix...', verbose=verbose)
-        return read_as_dask_array(elem, chunks=chunks, verbose=verbose)
-    
+        return elem.map_blocks(csr_matrix, dtype=elem.dtype, meta=csr_matrix((0, 0), dtype=elem.dtype))
+
     elif iospec.encoding_type == "array":
         print_flushed(f'Read {slot} as dask array...', verbose=verbose)
         return read_as_dask_array(elem, chunks=chunks, verbose=verbose)
@@ -365,30 +361,6 @@ def _read_slot_default(group, slot, force_sparse_types, force_slot_sparse, backe
         return csr_matrix(read_elem(elem))
     else:
         return read_elem(elem)
-
-
-def _optimal_sparse_index_dtypes(elem_group):
-    """Determine optimal int dtypes for CSR/CSC index arrays from zarr metadata only (no data loaded)."""
-    total_nnz = elem_group['indices'].shape[0]
-    shape = elem_group.attrs.get('shape', None)
-    n_minor = shape[1] if shape is not None and len(shape) > 1 else None
-    indptr_dtype = np.int32 if total_nnz <= _INT32_INFO.max else np.int64
-    indices_dtype = np.int32 if n_minor is None or (n_minor - 1) <= _INT32_INFO.max else np.int64
-    print('dtypes', indptr_dtype, indices_dtype, flush=True)
-    return indptr_dtype, indices_dtype
-
-
-def csr_matrix_int64_indptr(x, indptr_dtype=None, indices_dtype=None):
-    """Cast csr_matrix index arrays to the smallest safe integer dtype.
-
-    When dtypes are supplied (derived from global array metadata), they are used
-    directly. Otherwise the dtype is inferred per-block from local min/max values.
-    """
-    if not isinstance(x, csr_matrix):
-        x = csr_matrix(x)
-    x.indptr = x.indptr.astype(indptr_dtype)
-    x.indices = x.indices.astype(indices_dtype)
-    return x
 
 
 # deprecated

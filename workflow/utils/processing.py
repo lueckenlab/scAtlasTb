@@ -28,7 +28,7 @@ except ImportError as e:
     USE_GPU = False
 
 from .assertions import assert_neighbors
-from .io import to_memory, csr_matrix_int64_indptr
+from .io import to_memory
 from .misc import dask_compute
 from .accessors import _filter_genes
 
