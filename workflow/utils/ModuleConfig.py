@@ -25,7 +25,41 @@ logger.addHandler(handler)
 
 
 class ModuleConfig:
+    """
+    Configuration of a single module: input files, job parameters and output paths.
 
+    Every module's Snakefile creates one instance, which
+
+    * resolves the input files of each dataset (:class:`~utils.InputFiles.InputFiles`),
+    * builds a table with one row per job from the module's config and defaults
+      (:class:`~utils.WildcardParameters.WildcardParameters`),
+    * provides rules with output paths (``out_dir``, ``image_dir``, :meth:`get_output_files`),
+      per-job parameters (:meth:`get_from_parameters`) and resources (:meth:`get_resource`).
+
+    Example Snakefile:
+
+    .. code-block:: python
+
+        mcfg = ModuleConfig(
+            module_name='majority_voting',
+            config=config,
+            config_params=['columns', 'threshold'],
+        )
+        paramspace = mcfg.get_paramspace()
+
+        rule majority_voting:
+            input:
+                zarr=lambda wildcards: mcfg.get_input_file(**wildcards),
+            output:
+                zarr=directory(mcfg.out_dir / f'{paramspace.wildcard_pattern}.zarr'),
+            params:
+                threshold=lambda wildcards: mcfg.get_from_parameters(wildcards, 'threshold'),
+            ...
+
+        rule all:
+            input:
+                mcfg.get_output_files(rules.majority_voting.output)
+    """
 
     def __init__(
         self,
@@ -45,15 +79,23 @@ class ModuleConfig:
         warn: bool = False,
     ):
         """
-        :param module_name: name of module
+        :param module_name: name of module, used as config key and for output directories
         :param config: complete config from Snakemake
-        :param parameters: pd.DataFrame or path to TSV with module specific parameters
-        :param default_target: default output pattern for module
-        :param wildcard_names: list of wildcard names for expanding rules
+        :param parameters: pd.DataFrame or path to TSV with module specific parameters (e.g. per method),
+            merged into the job table
+        :param default_target: default output pattern for module, used by :meth:`get_output_files`.
+            Defaults to the module's entry in ``config['output_map']``, or ``<out_dir>/<wildcard pattern>.zarr``
+        :param wildcard_names: list of wildcard names for expanding rules, i.e. parameters that are part of output paths
+        :param mandatory_wildcards: wildcards that every job has, placed before ``wildcard_names``
+            (default: ``['dataset', 'file_id']``)
         :param config_params: list of parameters that a module should consider as wildcards, order and length must match wildcard_names, by default will take wildcard_names
-        :param explode_by: column(s) to explode wildcard_names extracted from config by
-        :param paramspace_kwargs: arguments passed to WildcardParameters
+        :param rename_config_params: mapping from config keys to column names in the job table
+        :param explode_by: column(s) to explode wildcard_names extracted from config by, i.e. one job per list entry
+        :param paramspace_kwargs: arguments passed to snakemake.utils.Paramspace
+        :param dont_inherit: config keys of the module that are not inherited from ``config['defaults']``
         :param dtypes: dictionary of dtypes for parameters DataFrame
+        :param write_output_files: whether to write ``output_files.tsv`` to the module's output directory
+        :param warn: whether to warn when no default target is given
         """
         self.module_name = module_name
         self.config = config.copy()
@@ -219,13 +261,16 @@ class ModuleConfig:
         """
         Retrieve wildcard instances as dictionary
         
-        :param **kwargs: arguments passed to WildcardParameters.get_wildcards
+        :param kwargs: arguments passed to WildcardParameters.get_wildcards
         :return: dictionary of wildcards that can be applied directly for expanding target files
         """
         return self.parameters.get_wildcards(**kwargs)
 
 
     def get_wildcard_names(self):
+        """
+        Get the names of all wildcards, including mandatory ones
+        """
         return self.parameters.wildcard_names
 
 
@@ -241,9 +286,18 @@ class ModuleConfig:
         **kwargs
     ) -> list:
         """
-        Get output file based on wildcards
-        :param pattern: output pattern, defaults to self.default_target
-        :param **kwargs: arguments passed to WildcardParameters.get_wildcards
+        Get output files for all jobs by expanding a pattern with the module's wildcards
+
+        :param pattern: output pattern or rule output, defaults to self.default_target
+        :param extra_wildcards: additional wildcards to expand the pattern with
+        :param allow_missing: whether to keep wildcards in the pattern that are not available
+        :param as_dict: return a dictionary of task name to file instead of a list
+        :param as_records: return a list of (task name, file) tuples instead of a list
+        :param return_wildcards: with ``as_records``, include the wildcard values in each record
+            and also return the wildcard names
+        :param verbose: whether to print wildcards and targets
+        :param kwargs: arguments passed to WildcardParameters.get_wildcards, e.g. ``subset_dict``
+        :return: list of output files (default), dictionary or records
         """
         if pattern is None:
             pattern = self.default_target
@@ -366,7 +420,9 @@ class ModuleConfig:
 
 
     def write_output_files(self):
-        # write output file mapping
+        """
+        Write the mapping of output file ids to file paths to ``<out_dir>/output_files.tsv``
+        """
         default_output_files, wildcard_names = self.get_output_files(
             default_datasets=False, as_records=True, return_wildcards=True
         )
@@ -383,34 +439,71 @@ class ModuleConfig:
     
 
     def get_input_file_wildcards(self):
+        """
+        Get dataset and file id wildcards of all input files, see :meth:`~utils.InputFiles.InputFiles.get_wildcards`
+        """
         return self.input_files.get_wildcards()
 
 
     def get_input_files(self):
+        """
+        Get input files of all datasets, see :meth:`~utils.InputFiles.InputFiles.get_files`
+        """
         return self.input_files.get_files()
 
 
     def get_input_files_per_dataset(self, dataset):
+        """
+        Get input files of a dataset as file id to file path mapping
+        """
         return self.input_files.get_files_per_dataset(dataset)
 
 
     def get_input_file(self, dataset, file_id, **kwargs):
+        """
+        Get the input file path of a job, typically called as ``mcfg.get_input_file(**wildcards)``
+
+        :param dataset: dataset name
+        :param file_id: input file id
+        :param kwargs: ignored, so that all wildcards of a job can be passed
+        """
         return self.input_files.get_file(dataset, file_id)
 
 
     def get_parameters(self):
+        """
+        Get the module-specific parameters table, see :meth:`~utils.WildcardParameters.WildcardParameters.get_parameters`
+        """
         return self.parameters.get_parameters()
 
 
     def get_paramspace(self, **kwargs):
+        """
+        Get the Paramspace whose ``wildcard_pattern`` defines output paths,
+        see :meth:`~utils.WildcardParameters.WildcardParameters.get_paramspace`
+        """
         return self.parameters.get_paramspace(**kwargs)
 
 
     def get_from_parameters(self, query_dict: [dict, Wildcards], parameter_key: str, **kwargs):
+        """
+        Get a parameter of a job, typically called as ``mcfg.get_from_parameters(wildcards, 'key')``
+
+        :param query_dict: wildcards of the job
+        :param parameter_key: column in the job table to retrieve
+        :param kwargs: arguments passed to :meth:`~utils.WildcardParameters.WildcardParameters.get_from_parameters`,
+            e.g. ``default``, ``exclude`` or ``as_type``
+        """
         return self.parameters.get_from_parameters(dict(query_dict), parameter_key, **kwargs)
 
 
     def update_inputs(self, dataset: str, input_files: [str, dict]):
+        """
+        Replace the input files of a dataset and rebuild the input file mapping
+
+        :param dataset: dataset name
+        :param input_files: file path, module name or file id to file path mapping
+        """
         self.config['DATASETS'][dataset]['input'][self.module_name] = input_files
         self.set_datasets()
         self.input_files = InputFiles(
@@ -444,6 +537,13 @@ class ModuleConfig:
 
 
     def get_profile(self, wildcards: [dict, Wildcards], default='cpu', **kwargs):
+        """
+        Get the resource profile of a job from the ``resources`` column of the job table
+        (e.g. ``cpu`` or ``gpu`` per method), to be passed to :meth:`get_resource`
+
+        :param wildcards: wildcards of the job
+        :param default: profile if the job table has no ``resources`` column or no value for the job
+        """
         if 'resources' in self.parameters.wildcards_df.columns:
             return self.get_from_parameters(wildcards, 'resources', default=default, **kwargs)
         return default
@@ -460,9 +560,15 @@ class ModuleConfig:
     ) -> [str, int, float]:
         """
         Retrieve resource information from config['resources']
-        
-        :param profile: resource profile, key under config['resources']
+
+        :param profile: resource profile, key under config['resources']. Falls back to ``cpu``
+            when ``use_gpu`` is disabled in the config
         :param resource_key: resource key, key under config['resources'][profile]
+        :param attempt: Snakemake attempt number of the job
+        :param attempt_to_cpu: attempts after this number use the ``cpu`` profile
+        :param factor: for ``mem_mb``, memory grows by this fraction of the configured value per retry
+        :param verbose: whether to print the profile and attempt
+        :return: resource value, or ``''`` if no resources are configured
         """
         if 'resources' not in self.config or not profile:
             return ''

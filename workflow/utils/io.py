@@ -85,6 +85,7 @@ def read_anndata(
 ) -> ad.AnnData:
     """
     Read anndata file
+
     :param file: path to anndata file in zarr or h5ad format
     :param kwargs: AnnData parameter to zarr group mapping
     """
@@ -506,6 +507,7 @@ def link_zarr(
 ):
     """
     Link to existing zarr file
+
     :param in_dir: path to existing zarr file or mapping of input slot in slot_map to input path
     :param out_dir: path to output zarr file
     :param file_names: list of files to link, if None, link all files
@@ -626,6 +628,7 @@ def write_zarr_linked(
 ):
     """
     Write adata to linked zarr file
+
     :param adata: AnnData object
     :param in_dir: path to existing zarr file
     :param out_dir: path to output zarr file

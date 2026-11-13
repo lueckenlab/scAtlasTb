@@ -68,6 +68,7 @@ Every module defines a ``ModuleConfig`` in its Snakefile with
    table = table.merge(input file ids)            # one row per input file
 
 Rules query this table with ``mcfg.get_from_parameters(wildcards, key)`` to retrieve the parameters of a given job.
+All methods of these helpers are listed in the :ref:`api`.
 Default values for all tasks can be set under the ``defaults`` key of the configuration (see :ref:`advanced-configuration`).
 
 Output files
