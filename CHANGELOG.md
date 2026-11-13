@@ -1,5 +1,15 @@
 # Changelog
 
+## 13.11.2026 Celltype prediction: sex prediction changes
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/405
+
+- X/Y-based sex prediction normalises data if needed and scales it before predicting.
+- Missing predictions are NaN instead of `None`.
+
+### BREAKING CHANGE
+- chrY ratio outputs are renamed to `sex_chrY_nonPAR_UMIs`, `sex_chrY_PAR_UMIs` and `sex_chrY_nonPAR_to_PAR`; the parameter `predict_key` is now `predict_prefix`.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361
