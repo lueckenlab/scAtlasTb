@@ -5,6 +5,7 @@ combat	full	false	false	scanpy	cpu
 harmony_pytorch	embed	false	false	rapids_singlecell	gpu	scanpy	
 harmonypy	embed	false	false	rapids_singlecell	gpu	scanpy	
 scanorama	embed,full	false	false	scanorama	cpu		
+seurat_rpca	embed	false	false	seurat	cpu		
 scanvi	embed	true	true	scvi-tools	gpu		
 scvi	embed	false	true	scvi-tools	gpu		
 scvi_vitkl	embed	false	true	scvi-vitkl	gpu		
