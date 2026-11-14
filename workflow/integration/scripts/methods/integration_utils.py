@@ -53,6 +53,8 @@ SCVI_MODEL_PARAMS = [
     'extra_decoder_kwargs',
     'categorical_covariate_keys',
     'continuous_covariate_keys',
+    'batch_representation',
+    'batch_representation_kwargs',
     # vitkl parameters
     'library_n_hidden',
     'library_log_vars_weight',
@@ -63,6 +65,16 @@ SCVI_MODEL_PARAMS = [
 ]
 
 SCANVI_MODEL_PARAMS = SCVI_MODEL_PARAMS + ['linear_classifier']
+
+SCVIX_MODEL_PARAMS = SCVI_MODEL_PARAMS + [
+    # scvix assay
+    'assay_key', # Mandatory 
+    # VampPrior
+    'prior',
+    'pseudoinputs_data_indices',
+    'n_prior_components',
+    'adversarial_group_key',
+]
 
 SYSVI_MODEL_PARAMS = SCVI_MODEL_PARAMS + [
     'system_key',
