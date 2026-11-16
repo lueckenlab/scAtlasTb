@@ -69,6 +69,8 @@ SCANVI_MODEL_PARAMS = SCVI_MODEL_PARAMS + ['linear_classifier']
 SCVIX_MODEL_PARAMS = SCVI_MODEL_PARAMS + [
     # scvix assay
     'assay_key', # Mandatory 
+    # scvix overriding cell type key
+    'cell_type_keys',
     # VampPrior
     'prior',
     'pseudoinputs_data_indices',

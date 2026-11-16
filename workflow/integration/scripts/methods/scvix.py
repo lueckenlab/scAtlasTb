@@ -23,7 +23,7 @@ Path(output_plot_dir).mkdir(parents=True, exist_ok=True)
 wildcards = snakemake.wildcards
 params = snakemake.params
 batch_key = wildcards.batch
-label_key = wildcards.label # Optional cell type labels in the style of SCANVI
+label_key = wildcards.label 
 
 torch.set_float32_matmul_precision('medium')
 scvi.settings.seed = params.get('seed', 0)
@@ -78,7 +78,12 @@ adata = read_anndata(
 
 clean_categorical_column(adata, batch_key)
 clean_categorical_column(adata, assay_key)
-if label_key is not None and label_key != 'None':
+
+# Check if the cell type keys are in the config, overrides the default label_key if the parameter is present.
+label_key = model_params.pop('cell_type_keys', label_key)
+if (label_key == 'None') | (label_key == None):
+    label_key = None
+else:
     clean_categorical_column(adata, label_key)
 
 # subset features
@@ -92,7 +97,7 @@ SCVIX.setup_anndata(
     adata,
     batch_key=batch_key,
     assay_key=assay_key,
-    labels_key=label_key if label_key != 'None' else None, # Optional cell type label, snakemake defaults to 'None' when no label params 
+    labels_key=label_key,
     adversarial_group_key=adversarial_group_key,
     categorical_covariate_keys=categorical_covariate_keys,
     continuous_covariate_keys=continuous_covariate_keys,
