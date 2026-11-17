@@ -63,7 +63,7 @@ def isolated_label_asw_y(adata, output_type, batch_key, label_key, **kwargs):
         return np.nan
 
     X = adata.obsm['X_emb'] if output_type == 'embed' else adata.obsm['X_pca']
-    X = X if isinstance(X, np.ndarray) else X.todense()
+    X = X if isinstance(X, np.ndarray) else X.toarray()
 
     return scib_metrics.isolated_labels(
         X=X,
