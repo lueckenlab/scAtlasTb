@@ -10,7 +10,7 @@ rule normalize:
     output:
         zarr=directory('{dataset}_normalized.zarr'),
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     script:
         '../scripts/normalize.py'
 
@@ -31,7 +31,7 @@ rule highly_variable_genes:
     output:
         zarr=directory('{dataset}_highly_variable_genes.zarr')
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     script:
         '../scripts/highly_variable_genes.py'
 
@@ -42,7 +42,7 @@ rule extra_hvgs:
     output:
         zarr=directory('{dataset}_extra_hvgs.zarr')
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     script:
         '../scripts/extra_hvgs.py'
 
@@ -53,7 +53,7 @@ rule pca:
     output:
         zarr=directory('{dataset}_pca.zarr')
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     script:
         '../scripts/pca.py'
 
@@ -64,7 +64,7 @@ rule neighbors:
     output:
         zarr=directory('{dataset}_neighbors.zarr')
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     script:
         '../scripts/neighbors.py'
 
@@ -76,7 +76,7 @@ rule umap:
     output:
         zarr=directory('{dataset}_umap.zarr')
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     script:
         '../scripts/umap.py'
 

@@ -1,3 +1,5 @@
+attempt_to_cpu = 2
+
 rule prepare:
     input:
         lambda wildcards: mcfg.get_input_file(**wildcards),
@@ -12,12 +14,12 @@ rule prepare:
         var_mask=lambda wildcards: mcfg.get_from_parameters(wildcards, 'var_mask', default='highly_variable'),
         output_type=lambda wildcards: mcfg.get_from_parameters(wildcards, 'output_type', default='embed'),
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     resources:
-        partition=lambda w: mcfg.get_resource(resource_key='partition', profile='gpu'),
-        qos=lambda w: mcfg.get_resource(resource_key='qos', profile='gpu'),
-        gpu=lambda w: mcfg.get_resource(resource_key='gpu', profile='gpu'),
-        mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile='gpu', attempt=attempt),
+        partition=lambda w, attempt: mcfg.get_resource(resource_key='partition', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        qos=lambda w, attempt: mcfg.get_resource(resource_key='qos', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu, factor=3),
+        gpu=lambda w, attempt: mcfg.get_resource(resource_key='gpu', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
     script:
         '../scripts/prepare.py'
 
@@ -35,15 +37,16 @@ use rule pca from preprocessing as metrics_pca with:
                 mask_var=mcfg.get_from_parameters(wildcards, 'var_mask', default='highly_variable')
             )
         ),
+        use_gpu=config.get("use_gpu", False),
         layer=lambda wildcards: mcfg.get_from_parameters(wildcards, 'unintegrated', default='X'),
         subset=True,
     conda:
-        lambda w: get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     resources:
-        partition=lambda w: mcfg.get_resource(resource_key='partition', profile='gpu'),
-        qos=lambda w: mcfg.get_resource(resource_key='qos', profile='gpu'),
-        gpu=lambda w: mcfg.get_resource(resource_key='gpu', profile='gpu'),
-        mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile='gpu', attempt=attempt),
+        partition=lambda w, attempt: mcfg.get_resource(resource_key='partition', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        qos=lambda w, attempt: mcfg.get_resource(resource_key='qos', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu, factor=3),
+        gpu=lambda w, attempt: mcfg.get_resource(resource_key='gpu', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
 
 
 rule pca_all:
@@ -81,12 +84,12 @@ use rule cluster from clustering as metrics_cluster with:
         clustering_args=lambda wildcards: mcfg.get_from_parameters(wildcards, 'clustering', default={}).get('kwargs', {}),
         overwrite=lambda wildcards: mcfg.get_from_parameters(wildcards, 'clustering', default={}).get('overwrite', True),
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=True),
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     resources:
-        partition=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='partition',attempt=attempt),
-        qos=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='qos',attempt=attempt),
-        mem_mb=lambda w, attempt: mcfg.get_resource(profile='gpu', resource_key='mem_mb', attempt=attempt, factor=0.8),
-        gpu=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='gpu',attempt=attempt),
+        partition=lambda w, attempt: mcfg.get_resource(resource_key='partition', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        qos=lambda w, attempt: mcfg.get_resource(resource_key='qos', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu, factor=3),
+        gpu=lambda w, attempt: mcfg.get_resource(resource_key='gpu', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
 
 
 use rule merge from clustering as metrics_cluster_collect with:
@@ -128,12 +131,12 @@ rule score_genes:
         n_permutations=lambda wildcards: mcfg.get_from_parameters(wildcards, 'gene_score', default={}).get('n_permutations', 20),
         n_quantiles=lambda wildcards: mcfg.get_from_parameters(wildcards, 'gene_score', default={}).get('n_quantiles', 5),
     conda:
-        get_env(config, 'scanpy', gpu_env='rapids_singlecell')
+        get_env(config, 'scanpy', gpu_env='rapids_singlecell', no_gpu=not config.get("use_gpu", False))
     resources:
-        partition=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='partition',attempt=attempt),
-        qos=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='qos',attempt=attempt),
-        mem_mb=lambda w, attempt: scale_mem_mb(w, attempt, factor=2, profile='gpu'),
-        gpu=lambda w, attempt: mcfg.get_resource(profile='gpu',resource_key='gpu',attempt=attempt),
+        partition=lambda w, attempt: mcfg.get_resource(resource_key='partition', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        qos=lambda w, attempt: mcfg.get_resource(resource_key='qos', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
+        mem_mb=lambda w, attempt: mcfg.get_resource(resource_key='mem_mb', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu, factor=3),
+        gpu=lambda w, attempt: mcfg.get_resource(resource_key='gpu', profile=mcfg.get_profile(w), attempt=attempt, attempt_to_cpu=attempt_to_cpu),
     script:
         '../scripts/score_genes.py'
 
