@@ -201,7 +201,8 @@ if union_over is not None:
 
         logging.info(f'Total highly variable genes across all groups: {adata.var[hvg_column_name].sum()}')
 
-else:
+# not an `else`: also runs as fallback when no union_over group qualified
+if union_over is None:
     logging.info(f'Select features for all cells with arguments: {args}...')
 
     logging.info(f'Before filtering for HVG selection: {adata.shape}')
