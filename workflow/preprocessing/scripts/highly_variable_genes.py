@@ -17,7 +17,9 @@ from utils.processing import sc, USE_GPU
 
 input_file = snakemake.input[0]
 output_file = snakemake.output[0]
-args = snakemake.params.get('args') or {}
+args = snakemake.params.get('args')
+if args is None:
+    args = {}  # keep an explicit False, which disables HVG selection
 
 if isinstance(args, dict):
     args.pop('subset', None) # don't support subsetting
