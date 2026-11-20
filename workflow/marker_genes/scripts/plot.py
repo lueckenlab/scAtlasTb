@@ -92,7 +92,7 @@ logging.info(adata.__str__())
 
 logging.info('Rankplot...')
 try:
-    sc.pl.rank_genes_groups(adata, **args, show=False)
+    sc.pl.rank_genes_groups(adata, **(args | {'show': False}))
     plt.suptitle(title)
     plt.savefig(output_rankplot, dpi=100, bbox_inches='tight')
 except Exception as e:
