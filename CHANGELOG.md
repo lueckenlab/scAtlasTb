@@ -1,5 +1,14 @@
 # Changelog
 
+## 20.11.2026 Utils: `write_zarr_linked` emulates linking for h5ad inputs
+
+- `write_zarr_linked` with an `.h5ad` input (which cannot be symlinked) now writes the slots of the input file and takes only the slots in `files_to_keep` from the in-memory AnnData, so the output matches a zarr input. Previously, it wrote the in-memory object as is, so partially loaded, subset or pseudobulked objects silently lost or replaced slots.
+- `slot_map`, `in_dir_map` and `subset_mask` are applied as for zarr inputs. Nested `files_to_keep` entries (e.g. `layers/normcounts`, `var/highly_variable`) are merged into the slot of the input file.
+- Slots from the in-memory AnnData that do not match the shape of the input file (after `subset_mask`) raise a `ValueError` naming the slot.
+
+### BREAKING CHANGE
+- Scripts that changed slots outside `files_to_keep` for h5ad inputs no longer write these changes, and kept slots with a different shape than the input file now raise an error instead of being written.
+
 ## 13.11.2026 Utils: operator queries and simpler sparse dask reads
 
 PR: https://github.com/lueckenlab/scAtlasTb/pull/394
