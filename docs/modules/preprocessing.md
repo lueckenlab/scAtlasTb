@@ -95,7 +95,7 @@ DATASETS:
 
 #### Filter genes
 
-Reads `X` (normalised counts) and computes `var['nonzero_genes'] = scanpy.pp.filter_genes(X, **filter)[0]` (default `filter: {min_cells: 1}`). This is only a mask used by the HVG steps to avoid genes that break HVG selection; the feature space is not reduced.
+Reads `X` (normalised counts) and computes `var['nonzero_genes'] = scanpy.pp.filter_genes(X, **filter)[0]` (if `filter` sets neither `min_cells` nor `min_counts`, `min_cells = max(10, min(200, ceil(0.001 * n_obs)))`). This is only a mask used by the HVG steps to avoid genes that break HVG selection; the feature space is not reduced.
 
 ```yaml
 DATASETS:
