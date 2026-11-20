@@ -51,7 +51,7 @@ def parse_group_order(group_order):
     if not order:
         logging.warning('group_order is empty. Continue without custom ordering.')
         return None
-    return order
+    return unique_preserve_order(order)
 
 
 def unique_preserve_order(values):
