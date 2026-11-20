@@ -18,6 +18,8 @@ from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 #     rank_gene_func = sc.tl.rank_genes_groups
 
 def write_empty(adata, output_file, output_tsv):
+    if input_file.endswith('.h5ad'):
+        adata = read_anndata(input_file, dask=True, backed=True)
     write_zarr_linked(
         adata,
         in_dir=input_file,
