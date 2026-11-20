@@ -592,6 +592,314 @@ def link_zarr(
         )
 
 
+## Emulate write_zarr_linked for inputs that cannot be symlinked (e.g. h5ad)
+
+_MAPPING_SLOTS = ['layers', 'obsm', 'varm', 'obsp', 'varp']
+
+
+def _anndata_to_slots(adata: ad.AnnData) -> dict:
+    """Represent AnnData as nested dict of slot name -> value, following the zarr group layout"""
+    slots = {
+        'X': adata.X,
+        'obs': adata.obs,
+        'var': adata.var,
+        'uns': dict(adata.uns),
+        **{slot: dict(getattr(adata, slot)) for slot in _MAPPING_SLOTS},
+        'raw': None,
+    }
+    if adata.raw is not None:
+        slots['raw'] = {
+            'X': adata.raw.X,
+            'var': adata.raw.var,
+            'varm': dict(adata.raw.varm),
+        }
+    return slots
+
+
+def _copy_containers(value):
+    """Copy dicts and DataFrames (not the arrays they contain), so that setting entries leaves the source untouched"""
+    if isinstance(value, pd.DataFrame):
+        return value.copy(deep=False)
+    if isinstance(value, MutableMapping) or isinstance(value, dict):
+        return {k: _copy_containers(v) for k, v in value.items()}
+    return value
+
+
+def _split_slot(path: str) -> list:
+    return path.strip('/').split('/')
+
+
+def _get_slot(slots: dict, path: str, source: str):
+    node = slots
+    for part in _split_slot(path):
+        if isinstance(node, pd.DataFrame) and part in node.columns:
+            node = node[part]
+        elif isinstance(node, (dict, MutableMapping)) and part in node and node[part] is not None:
+            node = node[part]
+        else:
+            raise KeyError(f'Slot "{path}" not found in {source}')
+    return node
+
+
+def _set_slot(slots: dict, path: str, value):
+    *parents, key = _split_slot(path)
+    node = slots
+    for part in parents:
+        if isinstance(node, pd.DataFrame):
+            raise ValueError(f'Cannot set nested slot "{path}" inside a DataFrame')
+        if node.get(part) is None:
+            node[part] = {}
+        node = node[part]
+    if isinstance(node, pd.DataFrame):
+        if isinstance(value, pd.Series):
+            value = value.values
+        if len(value) != len(node):
+            raise ValueError(
+                f'Cannot set column "{path}" with {len(value)} entries, '
+                f'the output has {len(node)} rows for "{"/".join(parents)}"'
+            )
+        node[key] = value
+    else:
+        node[key] = _copy_containers(value)
+
+
+def _delete_slot(slots: dict, path: str):
+    *parents, key = _split_slot(path)
+    try:
+        node = _get_slot(slots, '/'.join(parents), source='output') if parents else slots
+    except KeyError:
+        return
+    if isinstance(node, pd.DataFrame):
+        if key in node.columns:
+            del node[key]
+    elif key in node:
+        del node[key]
+
+
+def _subset_rows(value, mask):
+    if isinstance(value, (pd.DataFrame, pd.Series)):
+        value = value.iloc[mask].copy()
+        if isinstance(value, pd.DataFrame):
+            for col in value.columns:
+                if value[col].dtype.name == 'category':
+                    value[col] = value[col].cat.remove_unused_categories()
+        return value
+    return value[mask]
+
+
+def _subset_slot_by_mask(path: str, value, obs_mask, var_mask):
+    """
+    Apply subset mask to a slot read from file, following the same rules as set_mask_per_slot
+    """
+    if value is None or path.startswith(('uns', 'raw/uns')):
+        return value
+    if isinstance(value, (dict, MutableMapping)):
+        return {
+            key: _subset_slot_by_mask(f'{path}/{key}', val, obs_mask, var_mask)
+            for key, val in value.items()
+        }
+    if path in ('X', 'raw/X') or path.startswith(('layers/', 'raw/layers/')):
+        return value[obs_mask][:, var_mask]
+    if path.startswith('obsp/'):
+        return value[obs_mask][:, obs_mask]
+    if path.startswith('varp/'):
+        return value[var_mask][:, var_mask]
+    if path.startswith(('obs', 'raw/obs')):
+        return _subset_rows(value, obs_mask)
+    if path.startswith(('var', 'raw/var')):
+        return _subset_rows(value, var_mask)
+    return value
+
+
+def _check_slot_shapes(slots: dict, n_obs: int, n_vars: int, kept_slots: list):
+    """Make sure every slot fits the output shape, so that no broken zarr file is written"""
+
+    def expected_shape(path):
+        if path == 'X' or path.startswith('layers/'):
+            return (n_obs, n_vars)
+        if path.startswith('obsp/'):
+            return (n_obs, n_obs)
+        if path.startswith('varp/'):
+            return (n_vars, n_vars)
+        if path.startswith(('obs', 'raw/X')):
+            return (n_obs,)
+        if path.startswith('var'):
+            return (n_vars,)
+        return None  # uns, raw/var, raw/varm are not tied to the output shape
+
+    def check(path, value):
+        if value is None:
+            return
+        if isinstance(value, (dict, MutableMapping)):
+            for key, val in value.items():
+                check(f'{path}/{key}', val)
+            return
+        expected = expected_shape(path)
+        shape = getattr(value, 'shape', None)
+        if expected is None or shape is None:
+            return
+        if tuple(shape[:len(expected)]) != expected:
+            origin = [s for s in kept_slots if path == s or path.startswith(f'{s}/') or s.startswith(f'{path}/')]
+            origin = (
+                f' (taken from the in-memory AnnData via {origin})' if origin
+                else ''
+            )
+            raise ValueError(
+                f'Slot "{path}" has shape {tuple(shape)}{origin}, but the output has '
+                f'n_obs={n_obs}, n_vars={n_vars} (input file after applying subset_mask). '
+                'Slots from the in-memory AnnData must match the shape of the input file.'
+            )
+
+    for slot, value in slots.items():
+        check(slot, value)
+
+
+def _write_zarr_from_file(
+    adata: ad.AnnData,
+    in_file: [str, Path],
+    out_dir: [str, Path],
+    files_to_keep: list = None,
+    slot_map: MutableMapping = None,
+    in_dir_map: MutableMapping = None,
+    subset_mask: tuple = None,
+    compute: bool = False,
+    verbose: bool = True,
+):
+    """
+    Emulate write_zarr_linked for an input file that cannot be symlinked (e.g. h5ad).
+    The output consists of the slots of in_file, except for the slots in files_to_keep, which are taken from adata.
+    Slots that do not exist in in_file are taken from adata, as when linking from a zarr directory.
+
+    :param adata: in-memory AnnData object holding the slots in files_to_keep
+    :param in_file: path to input file
+    :param out_dir: path to output zarr file
+    :param files_to_keep: slots to take from adata. Nested slots (e.g. 'layers/normcounts', 'var/highly_variable')
+        are merged into the slot of in_file.
+    :param slot_map: mapping of output slot to input slot, read from in_file unless specified in in_dir_map
+    :param in_dir_map: mapping of input slot to the file to read it from. If the file is out_dir, the input slot is
+        taken from the output (i.e. from files_to_keep of adata)
+    :param subset_mask: tuple of obs and var masks to apply to all slots read from file
+    """
+    in_file = Path(in_file)
+    out_dir = Path(out_dir)
+    files_to_keep = [f.strip('/') for f in (files_to_keep or [])]
+    slot_map = {} if slot_map is None else dict(slot_map)
+    slot_map = {
+        out_slot.strip('/'): (out_slot if in_slot is None else in_slot).strip('/')
+        for out_slot, in_slot in slot_map.items()
+        if out_slot.strip('/') not in files_to_keep
+    }
+    in_dir_map = {} if in_dir_map is None else {
+        in_slot.strip('/'): Path(path) for in_slot, path in in_dir_map.items()
+    }
+
+    def is_same_path(a, b):
+        return Path(a).resolve() == Path(b).resolve()
+
+    obs_mask, var_mask = (None, None) if subset_mask is None else subset_mask
+
+    def apply_mask(path, value):
+        if obs_mask is None and var_mask is None:
+            return value
+        _obs_mask = np.ones(n_obs_in, dtype=bool) if obs_mask is None else np.asarray(obs_mask, dtype=bool)
+        _var_mask = np.ones(n_vars_in, dtype=bool) if var_mask is None else np.asarray(var_mask, dtype=bool)
+        return _subset_slot_by_mask(path, value, _obs_mask, _var_mask)
+
+    # read input file lazily
+    print_flushed(f'Read slots from {in_file}...', verbose=verbose)
+    store = get_store(str(in_file))
+    in_file_slots = set(store.keys())
+    store.close()
+    in_adata = read_anndata(str(in_file), dask=True, backed=True, verbose=False)
+    n_obs_in, n_vars_in = in_adata.shape
+    in_slots = {
+        slot: apply_mask(slot, value)
+        for slot, value in _anndata_to_slots(in_adata).items()
+    }
+    memory_slots = _anndata_to_slots(adata)
+
+    # slots from input file, slots not present in input file are taken from memory
+    out_slots = {}
+    memory_slot_names = []
+    for slot in ALL_SLOTS:
+        if slot in in_file_slots:
+            out_slots[slot] = _copy_containers(in_slots[slot])
+        else:
+            out_slots[slot] = _copy_containers(memory_slots[slot])
+            memory_slot_names.append(slot)
+
+    # slots to keep from memory
+    for slot in files_to_keep:
+        if '/' not in slot:
+            if slot not in memory_slots:
+                # same as for zarr, where unknown slots are not linked or kept
+                warnings.warn(f'Unknown slot "{slot}" in files_to_keep, must be one of {ALL_SLOTS}. Skipping...')
+                continue
+            print_flushed(f'Keep "{slot}" from in-memory AnnData', verbose=verbose)
+            out_slots[slot] = _copy_containers(memory_slots[slot])
+            memory_slot_names.append(slot)
+            continue
+        try:
+            value = _get_slot(memory_slots, slot, source='in-memory AnnData')
+        except KeyError:
+            print_flushed(f'Slot "{slot}" not in in-memory AnnData, removing it from output', verbose=verbose)
+            _delete_slot(out_slots, slot)
+            continue
+        print_flushed(f'Keep "{slot}" from in-memory AnnData', verbose=verbose)
+        _set_slot(out_slots, slot, value)
+        memory_slot_names.append(slot)
+
+    # in_dir_map is keyed by input slot, so as in link_zarr it also applies to the default
+    # link of a top-level slot that is neither kept nor mapped
+    kept_top_level = {_split_slot(slot)[0] for slot in files_to_keep}
+    slot_map = {
+        slot: slot for slot in in_dir_map
+        if slot in in_file_slots and slot not in kept_top_level
+    } | slot_map
+
+    # map slots from input file(s), mirrors link_zarr
+    kept_slots = _copy_containers(out_slots)
+    other_files = {}
+    for out_slot, in_slot in slot_map.items():
+        source = in_dir_map.get(in_slot, in_file)
+        if is_same_path(source, in_file):
+            value = _get_slot(in_slots, in_slot, source=str(in_file))
+        elif is_same_path(source, out_dir):
+            value = _get_slot(kept_slots, in_slot, source=f'output {out_dir}')
+            memory_slot_names.append(out_slot)
+        else:
+            if source not in other_files:
+                assert source.exists(), f'Input directory {source} does not exist'
+                other_files[source] = get_store(str(source))
+            value = read_slot(
+                file=source,
+                group=other_files[source],
+                slot_name=in_slot,
+                backed=True,
+                dask=True,
+                verbose=False,
+            )
+            value = apply_mask(in_slot, value)
+        print_flushed(f'Map "{out_slot}" <- "{in_slot}", {source}', verbose=verbose)
+        _set_slot(out_slots, out_slot, value)
+
+    # expected output shape is the shape of the input file after subsetting
+    n_obs, n_vars = in_slots['obs'].shape[0], in_slots['var'].shape[0]
+    _check_slot_shapes(out_slots, n_obs=n_obs, n_vars=n_vars, kept_slots=memory_slot_names)
+
+    raw = out_slots.pop('raw')
+    out_adata = ad.AnnData(**out_slots)
+    if raw is not None and raw.get('X') is not None:
+        out_adata.raw = ad.AnnData(
+            X=raw['X'],
+            obs=pd.DataFrame(index=out_adata.obs_names),
+            var=raw.get('var'),
+            varm=raw.get('varm'),
+        )
+    print_flushed(f'Write {out_dir}...', verbose=verbose)
+    write_zarr(out_adata, out_dir, compute=compute)
+
+
 def write_zarr_linked(
     adata: ad.AnnData,
     in_dir: [str, Path],
@@ -607,7 +915,8 @@ def write_zarr_linked(
     """
     Write adata to linked zarr file
     :param adata: AnnData object
-    :param in_dir: path to existing zarr file
+    :param in_dir: path to existing zarr file. For a file that cannot be symlinked (e.g. h5ad), the slots are read
+        from the file and written to out_dir, so that the output is the same as for a zarr input.
     :param out_dir: path to output zarr file
     :param files_to_keep: list of files to keep and not overwrite
     :param relative_path: use relative path for link
@@ -630,12 +939,23 @@ def write_zarr_linked(
 
         if in_dir.is_dir():
             in_dirs = [f.name for f in in_dir.iterdir()]
-        else:  # cannot symlink to non-directory (e.g. h5ad)
+        else:  # cannot symlink to non-directory (e.g. h5ad), emulate linking in memory
             print_flushed(
-                f"Warning: `{in_dir=!r}` is not a top-level zarr directory, not linking any files", verbose=True
+                f'`{in_dir}` is not a zarr directory, copying unchanged slots from the input file instead of linking',
+                verbose=verbose,
             )
-            write_zarr(adata, out_dir, compute=compute)
-            return  # exit since no linking can be done
+            _write_zarr_from_file(
+                adata=adata,
+                in_file=in_dir,
+                out_dir=out_dir,
+                files_to_keep=files_to_keep,
+                slot_map=slot_map,
+                in_dir_map=in_dir_map,
+                subset_mask=subset_mask,
+                compute=compute,
+                verbose=verbose,
+            )
+            return
     else:
         in_dirs = []
     
