@@ -1,0 +1,5 @@
+output_dir: test/out
+dataset_meta: test/configs/dataset_info/cellxgene_no_schema.tsv
+images: test/images
+
+env_mode: local # from_yaml

@@ -16,7 +16,7 @@ from utils.io import read_anndata, write_zarr
 from utils.misc import ensure_sparse, dask_compute
 
 in_file = snakemake.input.h5ad
-schema_file = snakemake.input.schema
+schema_file = snakemake.input.get('schema')
 annotation_file = snakemake.input.get('annotation_file')
 out_file = snakemake.output.zarr
 # out_plot = snakemake.output.plot
@@ -107,7 +107,7 @@ else:
 
 # Checking schema version
 if 'schema_version' not in adata.uns.keys():
-    adata.uns['schema_version'] = '0.0.0'
+    adata.uns['schema_version'] = float('nan')
 if adata.uns['schema_version'] == '2.0.0':
     adata.obs['self_reported_ethnicity'] = adata.obs['ethnicity']
     adata.obs['self_reported_ethnicity_ontology_term_id'] = adata.obs['ethnicity_ontology_term_id']
@@ -136,13 +136,14 @@ if 'barcode' not in adata.obs.columns:
 adata.obs_names = adata.obs[['barcode', 'tech_id']].astype(str).agg('-'.join, axis=1)
 
 # schemas translation
-schemas_df = pd.read_table(schema_file).dropna()
-logging.info(schemas_df)
-from_schema = meta['schema']
-assert from_schema in schemas_df.columns
-to_schema = 'cellxgene'
-SCHEMAS["NAMES"] = dict(zip(schemas_df[from_schema], schemas_df[to_schema]))
-adata.obs.rename(SCHEMAS["NAMES"], inplace=True)
+if schema_file is not None:
+    schemas_df = pd.read_table(schema_file).dropna()
+    logging.info(schemas_df)
+    from_schema = meta['schema']
+    assert from_schema in schemas_df.columns
+    to_schema = 'cellxgene'
+    SCHEMAS["NAMES"] = dict(zip(schemas_df[from_schema], schemas_df[to_schema]))
+    adata.obs.rename(SCHEMAS["NAMES"], inplace=True)
 
 # making sure all columns are in the object
 all_columns = get_union(SCHEMAS["CELLxGENE_OBS"], SCHEMAS["TIER1"], SCHEMAS["EXTRA_COLUMNS"])

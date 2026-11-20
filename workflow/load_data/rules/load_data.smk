@@ -29,24 +29,23 @@ def get_files_for_metadata_harm(wildcards):
         )
     file_path = meta['url']
     anno_file = meta.get('annotation_file')
+    schema_file = config.get('schema_file')
 
     # download file if not present
     if not Path(str(file_path)).exists():
         file_path = rules.download.output.h5ad
 
+    file_map = {'h5ad': file_path}
+
     # include annotation file if specified
     if pd.notna(anno_file) and pd.notnull(anno_file):
-        return {
-            'h5ad': file_path,
-            'schema': config["schema_file"],
-            'annotation_file': anno_file,
-        }
+        file_map['annotation_file'] = anno_file
 
-    # default files
-    return {
-        'h5ad': file_path,
-        'schema': config["schema_file"],
-    }
+    # include schema file if specified
+    if pd.notna(schema_file) and pd.notnull(schema_file):
+        file_map['schema'] = schema_file
+
+    return file_map
 
 
 rule harmonize_metadata:

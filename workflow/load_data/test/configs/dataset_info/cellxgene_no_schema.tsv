@@ -1,0 +1,3 @@
+subset	organ	dataset	study	collection_name	doi	cxg_url	collection_id	dataset_id	project_uuid	modalities	pipeline_version	reference	donor_column	tech_id	keep_covariates	author_annotation	institution	url	annotation_file	barcode_column	schema
+test	lung	Nawijn_2021_cellxgene	Nawijn_2021	HLCA	10.1038/s41591-019-0468-5					RNA	Cell Ranger v3.1.0	GRCh38-ensembl84	subject_ID	sample		original_ann_level_1	University Medical Center Groningen	test/data/Nawijn_2021.h5ad			cellxgene
+
