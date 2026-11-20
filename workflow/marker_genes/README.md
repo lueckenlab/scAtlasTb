@@ -1,6 +1,6 @@
 # Marker Genes
 
-This module computes marker genes for user-defined groupings (e.g. cell type labels, batches, cell cycle phases) using the Wilcoxon rank-sum test or other methods available in [scanpy](https://scanpy.readthedocs.io).
+This module computes marker genes for user-defined groupings (e.g. cell type labels, batches, cell cycle phases) using the Wilcoxon rank-sum test or other methods available in [scanpy](https://scanpy.scverse.org/en/stable/api/generated/scanpy.tl.rank_genes_groups.html).
 It also supports plotting user-provided gene sets alongside the statistically derived marker genes.
 
 ## Environments
@@ -70,7 +70,7 @@ MARKER_GENES:
 
 - **`groups`**: One or more `.obs` columns by which marker genes are computed. Each entry produces a separate analysis run.
 
-- **`rank_genes_groups`**: Arguments passed directly to [`sc.tl.rank_genes_groups`](https://scanpy.readthedocs.io/en/stable/generated/scanpy.tl.rank_genes_groups.html).
+- **`rank_genes_groups`**: Arguments passed directly to [`sc.tl.rank_genes_groups`](https://scanpy.scverse.org/en/stable/api/generated/scanpy.tl.rank_genes_groups.html).
   - `method`: Statistical test to use (e.g. `wilcoxon`, `logreg`, `t-test`). Default: `wilcoxon`.
   - `reference`: Reference group for comparison (e.g. `rest`). Default: `rest`.
   - `n_genes`: Number of top genes to compute per group. Default: all genes.
