@@ -6,8 +6,11 @@ PR: https://github.com/lueckenlab/scAtlasTb/pull/395
 
 - New `plot.group_order` sets the group order in user marker gene plots (list, comma-separated string, file, or a dict per group).
 - User marker genes are also shown as matrix plots, next to the dot plots.
-- `rank_genes_groups` writes an empty result instead of failing on groups that are too small (`min_groups_size`, `min_cells`).
+- `min_groups_size` (default 10) and `min_cells` (default 100) can be set under `rank_genes_groups`. They are not passed on to scanpy.
+- New `fail_on_empty` (default `true`): if `min_cells` or `min_groups_size` filter out all cells, `rank_genes_groups` fails before loading the data. The error says which filter removed everything and where to change it in the module configuration. Set `fail_on_empty: false` to write an empty result instead. An input that is already empty always gives an empty result.
 - The `plot_user` rule moved to `rules/user_genes.smk`; rule names are unchanged.
+- Plots are only saved to file and no longer opened in a window.
+- The module docs page now comes from the module README, including the overview diagram and the functional description.
 
 ## 13.11.2026 Utils: operator queries and simpler sparse dask reads
 
