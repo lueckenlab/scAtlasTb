@@ -49,8 +49,9 @@ sample_key = snakemake.params.sample
 layer = snakemake.params.layer
 args = snakemake.params.get('args', {})
 pseudobulk = not sample_key is None
-min_groups_size = snakemake.params.get('min_groups_size', 10)
-min_cells = snakemake.params.get('min_cells', 100)
+# workflow-specific thresholds, not passed on to scanpy
+min_groups_size = args.pop('min_groups_size', 10)
+min_cells = args.pop('min_cells', 100)
 key = f'marker_genes_group={group_key}'
 
 # determine how to read the data

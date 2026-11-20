@@ -25,6 +25,7 @@ DATASETS:
         reference: rest
         n_genes: 100
         method: wilcoxon
+        min_groups_size: 2 # not passed to scanpy: min. samples per group (default: 10)
       plot:                # passed to the scanpy plotting functions
         n_genes: 20
         min_logfoldchange: 3
@@ -43,7 +44,9 @@ A full example is in `workflow/marker_genes/test/config.yaml`.
 - **`groups`**: `.obs` column(s) to group cells by. Each column is processed separately.
 - **`sample`** (optional): `.obs` column with sample/donor IDs. If set, counts are summed into pseudobulks per group × sample before testing.
 - **`layer`** (default: `X`): expression matrix to use for testing and user marker plots.
-- **`rank_genes_groups`**: keyword arguments for [`scanpy.tl.rank_genes_groups`](https://scanpy.readthedocs.io/en/stable/api/generated/scanpy.tl.rank_genes_groups.html) (e.g. `method`, `reference`, `n_genes`).
+- **`rank_genes_groups`**: keyword arguments for [`scanpy.tl.rank_genes_groups`](https://scanpy.readthedocs.io/en/stable/api/generated/scanpy.tl.rank_genes_groups.html) (e.g. `method`, `reference`, `n_genes`). Special keys (not passed to scanpy):
+  - `min_groups_size` (default: 10): minimum number of observations a group needs to be tested. When `sample` is set, observations are pseudobulks, so this is the minimum number of samples per group. Groups below it are not tested.
+  - `min_cells` (default: 100): datasets with this many cells or fewer are not tested.
 - **`plot`**: keyword arguments for the scanpy `rank_genes_groups` plotting functions. Special keys: `n_genes` (genes per group, default 10), `min_logfoldchange` (filter for plotted genes), `n_groups_per_split` (number of groups per dot/matrix plot).
 - **`plot.group_order`** (optional): order in which groups are shown in the user marker gene plots. Matching groups are plotted in the configured order; any remaining observed groups are appended afterwards. See [Group ordering](#group-ordering) below.
 - **`marker_genes`**: either a comma-separated string of keys into the top-level `MARKER_GENES` dictionary, or a dictionary of gene sets. Gene sets may be a list of genes, a dictionary `{label: [genes]}`, or a nested dictionary of such dictionaries.
