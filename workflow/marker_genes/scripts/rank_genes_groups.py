@@ -87,7 +87,7 @@ def filter_groups(group_obs):
     unit = f'pseudobulks (samples in "{sample_key}")' if pseudobulk else 'cells'
     write_empty_output = check_empty(
         n_input=n_obs,
-        n_remaining=obs[group_key].isin(groups).sum(),
+        n_remaining=group_obs[group_key].isin(groups).sum(),
         fail_on_empty=fail_on_empty,
         reason=(
             f'no group in "{group_key}" has at least min_groups_size={min_groups_size} {unit}. '
