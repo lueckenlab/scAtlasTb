@@ -45,7 +45,7 @@ def parse_group_order(group_order):
     if isinstance(group_order, (list, tuple)):
         order = [str(group).strip() for group in group_order if group is not None and str(group).strip()]
     else:
-        raise ValueError(
+        raise TypeError(
             'Invalid group_order format. Expected a YAML list or comma-separated string '
             f'but got {type(group_order).__name__}: {group_order}'
         )
