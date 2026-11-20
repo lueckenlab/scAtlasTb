@@ -1,6 +1,8 @@
 import scanpy as sc
 import pandas as pd
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')  # only save plots to file, never open windows
 from matplotlib import pyplot as plt
 from pprint import pformat
 import logging

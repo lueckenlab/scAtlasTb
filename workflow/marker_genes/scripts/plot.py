@@ -1,6 +1,8 @@
 import numpy as np
 import scanpy as sc
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')  # only save plots to file, never open windows
 from matplotlib import pyplot as plt
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -90,7 +92,7 @@ logging.info(adata.__str__())
 
 logging.info('Rankplot...')
 try:
-    sc.pl.rank_genes_groups(adata, **args)
+    sc.pl.rank_genes_groups(adata, **args, show=False)
     plt.suptitle(title)
     plt.savefig(output_rankplot, dpi=100, bbox_inches='tight')
 except Exception as e:
@@ -106,7 +108,7 @@ for i, partition_groups in enumerate(splits):
         groups=partition_groups,
         return_fig=True,
     )
-    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5).show()
+    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5)
     dp.savefig(
         f'{output_dotplot}/split={i}_expression.png',
         dpi=100,
@@ -124,7 +126,7 @@ for i, partition_groups in enumerate(splits):
         colorbar_title='log fold change',
         return_fig=True,
     )
-    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5).show()
+    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5)
     dp.savefig(
         f'{output_dotplot}/split={i}_logfoldchanges.png',
         dpi=100,
@@ -138,7 +140,7 @@ for i, partition_groups in enumerate(splits):
         groups=partition_groups,
         return_fig=True,
     )
-    mp.add_totals().style(edge_color='black').show()
+    mp.add_totals().style(edge_color='black')
     mp.savefig(
         f'{output_matrixplot}/split={i}_expression.png',
         dpi=100,
@@ -156,7 +158,7 @@ for i, partition_groups in enumerate(splits):
         colorbar_title='log fold change',
         return_fig=True,
     )
-    mp.add_totals().style(edge_color='black').show()
+    mp.add_totals().style(edge_color='black')
     mp.savefig(
         f'{output_matrixplot}/split={i}_logfoldchanges.png',
         dpi=100,
