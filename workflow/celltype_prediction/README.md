@@ -10,11 +10,30 @@ The module currently supports:
 
 - **CellTypist**: Automated cell type annotation using pre-trained models
 
-## Environments
+```mermaid
+flowchart TD
+  in(["Input AnnData<br/>counts + gene symbols"])
+  models(["Pretrained CellTypist models"])
+  norm["Normalize counts<br/>normalize_total + log1p"]
+  pred["Predict cell type per cell<br/>celltypist.annotate"]
+  mv["Majority voting per over-cluster<br/>refines per-cell predictions"]
+  sexx["Sex per donor from X/Y gene expression"]
+  sexy["Sex per donor from chrY non-PAR / PAR ratio"]
+  out(["Predicted labels + confidence scores,<br/>sex labels in .obs"])
+  in -->|"unless already normalized"| norm
+  in -.->|"already normalized"| pred
+  norm --> pred
+  models -->|per model| pred
+  pred --> out
+  pred -.->|optional| mv
+  mv --> out
+  in -.->|"optional: predict_sex"| sexx
+  in -.->|"optional: predict_sex"| sexy
+  sexx --> out
+  sexy --> out
+```
 
-The following environments are needed for cell type prediction:
-
-- [`celltypist`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/celltypist.yaml)
+*Conceptual overview of the main steps of the module. See the [functional description](#functional-description) below for details.*
 
 ## Configuration
 
@@ -36,11 +55,6 @@ DATASETS:
           - Healthy_COVID19_PBMC
           - Immune_All_Low
 ```
-
-### Input
-
-The input AnnData object should contain the single-cell RNA-seq data to be annotated.
-Reference cell type labels can optionally be provided for evaluation and visualization purposes.
 
 ### Configuration Parameters
 
@@ -74,16 +88,77 @@ If set, donor sex is predicted from X- and Y-linked gene expression:
 
 > **Note:** CellTypist models are trained on specific tissue types and cell populations. Choose models appropriate for your data type (e.g., PBMC, immune cells, etc.).
 
-## Output
+## Functional description
 
-### CellTypist
-The cell type prediction workflow produces the following outputs:
+### Inputs
 
-* `<out_dir>/celltype_prediction/dataset~<dataset>/file_id~<file_id>.zarr`: Annotated AnnData object containing:
-  - **Direct predictions** (`obs['celltypist_<model>:predicted_labels']`): Primary cell type predictions
-  - **Majority voting results** (`obs['celltypist_<model>:majority_voting']`): Consensus predictions (if enabled)
-  - **Over-clustering results** (`obs['celltypist_<model>:over_clustering']`): Fine-grained clustering results (if specified)
-  - **Confidence scores** (`obs['celltypist_<model>:conf_score']`): Prediction confidence values
+* **File formats:** `.h5ad` or `.zarr` (AnnData), configured under `input: celltype_prediction:` (see [architecture](https://scatlastb.readthedocs.io/en/latest/principles/architecture.html)).
+* **Expression matrix:** the slot named by `counts` (default: `X`), read lazily with dask. For CellTypist it is normalised in the workflow unless `is_normalized: true` (default `false`); sex prediction uses it as is (`is_normalized` is passed but not used by the script).
+* **`.var`:** if `feature_name` exists it replaces `var_names` (CellTypist models and sex marker genes are matched on gene symbols); otherwise `var_names` are used.
+* **`.obs`:** optional `reference_label` (must exist if set); `celltypist.params.over_clustering` column if given; `predict_sex.donor_key` (required for sex prediction) and optionally `predict_sex.reference_key`.
+* **`.obsm`, `.obsp`, `.uns`:** read only when `celltypist.params.majority_voting` is `true` and no `over_clustering` column is given, so that CellTypist can over-cluster on an existing neighbour graph.
+* **Models:** `celltypist.models` lists CellTypist model names; the parameter space is exploded so each model is its own `celltypist_model` wildcard.
 
-* `<images>/celltype_prediction/dataset~<dataset>/file_id~<file_id>/celltypist--<model>/`: Dot plots comparing predictions with reference labels (if `reference_label` is provided)
-* If `predict_sex` is configured, the annotated AnnData object additionally contains `obs['<predict_column>']`, `obs['<predict_column>_chrY']` and `uns['predict_sex']`
+### Processing steps
+
+1. **`celltype_prediction_celltypist_get_model`** (script `scripts/get_celltypist_model.py`, environment `celltypist`). Sets `CELLTYPIST_FOLDER=<output_dir>/celltype_prediction/models/celltypist`, downloads the model with `celltypist.models.download_models(model='<model>.pkl', force_update=True)` (network access required) and hard-links it to `<model>.pkl` in that folder.
+
+2. **`celltype_prediction_celltypist`** (script `scripts/celltypist.py`, environment `celltypist`). One job per file × model.
+   ```text
+   read X=<counts>, obs, var (+ obsm, obsp, uns, see Inputs)
+   obs_names_make_unique() (original names restored before writing)
+   if not is_normalized: scanpy.pp.normalize_total(target_sum=1e4); scanpy.pp.log1p
+   load matrix into memory
+   model = celltypist.models.Model.load(<model>.pkl)
+   predictions = celltypist.annotate(adata, model=model, **celltypist.params)
+                 # e.g. majority_voting, over_clustering, mode, p_thres
+   if reference_label:
+       celltypist.dotplot(predictions, use_as_reference=reference_label,
+                          use_as_prediction="predicted_labels")      -> predicted_labels.png
+       if majority_voting: same with use_as_prediction="majority_voting" -> majority_voting.png
+   obs = predictions.to_adata(insert_labels=True, insert_conf=True,
+                              prefix=f"celltypist_{model}:").obs, keep prefixed columns
+   ```
+   With `majority_voting: true`, CellTypist refines per-cell predictions by assigning each over-cluster (the given `over_clustering` column, or a Leiden over-clustering computed by CellTypist) its most frequent predicted label.
+
+3. **`celltype_prediction_predict_sex`** (script `scripts/predict_sex.py`, environment `scanpy`). Only scheduled when `predict_sex` is configured.
+   ```text
+   assert donor_key in obs; restrict to `donors` if given (all must be present)
+   resolve gene lists via utils.accessors.match_genes on var['feature_name']
+       (entries may be gene names, local text files or URLs; each list must match ≥1 gene)
+   # rule 1: X/Y expression
+   per cell: x = mean expression of x_genes (default XIST); y = mean of y_genes
+             (default FAM197Y6, FAM197Y7, FAM41AY2, LINC00279, SRY, TTTY1B)
+   per donor: X, Y = sum over cells; y/x and x/y ratios (inf if denominator is 0)
+   label = female  if (X > x_threshold and Y <= y_threshold) or Y/X <= imbalance_frac
+           male    elif (X <= x_threshold and Y > y_threshold) or X/Y < imbalance_frac
+           mix     elif (X > x_threshold and Y > y_threshold) or (both ratios > imbalance_frac)
+           NaN     otherwise
+   # rule 2: chrY non-PAR / PAR ratio (AIDA gene lists fetched from GitHub by default)
+   per donor: ratio = sum(UMIs of non-PAR genes) / sum(UMIs of PAR genes) (inf if PAR = 0)
+   label_chrY = male if ratio >= chrY_threshold (default 0.5) else female
+   broadcast donor labels to cells
+   if reference_key in obs: accuracy = fraction of cells with reference in {male, female}
+                            matching each prediction; mismatching donors are logged
+   ```
+   Defaults: `x_threshold=0`, `y_threshold=4`, `imbalance_frac=0.1`, `predict_column='sex'`, `reference_key=predict_column`.
+
+4. **`celltype_prediction_collect`** (script `scripts/collect.py`, environment `scanpy`). Adds the `.obs` columns of all CellTypist outputs (and of the sex prediction output, plus its `.uns['predict_sex']`) to the input `.obs` and writes `obs` (and `uns`) zarr-linked to the input.
+
+### Outputs
+
+Relative to `<output_dir>/celltype_prediction/`:
+
+* `dataset~<dataset>/file_id~<file_id>.zarr` — final object. Per model, `.obs` columns `celltypist_<model>:predicted_labels` (direct per-cell predictions), `celltypist_<model>:conf_score` (prediction confidence), and with majority voting `celltypist_<model>:over_clustering` (over-clusters used) and `celltypist_<model>:majority_voting` (consensus label per over-cluster). With `predict_sex`: `.obs['<predict_column>']`, `.obs['<predict_column>_chrY']`, and `.uns['predict_sex']` with `X_Y_expression` (`predictions` per donor with `<predict_column>_x_exp`, `<predict_column>_y_exp`, label; gene lists; thresholds; `accuracy` if a reference exists) and `chrY_ratio` (`predictions` with `chrY_nonPAR_UMIs`, `chrY_PAR_UMIs`, `nonPAR_to_PAR`, label; gene lists; `accuracy`).
+* `celltypist/dataset~<dataset>/file_id~<file_id>/<model>.zarr` — per-model predictions in `.obs`.
+* `predict_sex/dataset~<dataset>/file_id~<file_id>.zarr` — sex predictions.
+* `models/celltypist/<model>.pkl` — downloaded models.
+
+Relative to `<images>/celltype_prediction/dataset~<dataset>/file_id~<file_id>/`:
+
+* `celltypist--<model>/predicted_labels.png`, `celltypist--<model>/majority_voting.png` — CellTypist dot plots of reference vs. predicted labels (only with `reference_label`).
+
+### Environments
+
+* [`celltypist`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/celltypist.yaml) — model download and prediction.
+* [`scanpy`](https://github.com/HCA-integration/scAtlasTb/blob/main/envs/scanpy.yaml) — sex prediction and collection (no GPU path).
