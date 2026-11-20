@@ -18,6 +18,7 @@ mcfg = ModuleConfig(
         'sample',
         'marker_genes',
         'layer',
+        'fail_on_empty',
     ],
     rename_config_params={'groups': 'group'},
     explode_by='group',

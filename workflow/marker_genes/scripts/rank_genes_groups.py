@@ -10,6 +10,7 @@ rank_gene_func = sc.tl.rank_genes_groups
 
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import subset_hvg
+from utils.assertions import check_empty
 from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 
 # if USE_GPU:
@@ -17,9 +18,8 @@ from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 # else:
 #     rank_gene_func = sc.tl.rank_genes_groups
 
-def write_empty(adata, output_file, output_tsv):
-    if input_file.endswith('.h5ad'):
-        adata = read_anndata(input_file, dask=True, backed=True)
+def write_empty(output_file, output_tsv):
+    adata = read_anndata(input_file, dask=True, backed=True)
     write_zarr_linked(
         adata,
         in_dir=input_file,
@@ -47,6 +47,7 @@ output_tsv = snakemake.output.tsv
 group_key = snakemake.wildcards.group
 sample_key = snakemake.params.sample
 layer = snakemake.params.layer
+fail_on_empty = snakemake.params.get('fail_on_empty', True)
 args = snakemake.params.get('args', {})
 pseudobulk = not sample_key is None
 # workflow-specific thresholds, not passed on to scanpy
@@ -61,6 +62,59 @@ n_obs = obs.shape[0]
 n_groups = obs.drop_duplicates().shape[0]
 dask = pseudobulk or (n_obs > 1e6 or n_groups > 1e5)
 
+# apply filters on metadata only, so that the job fails before loading any data
+write_empty_output = check_empty(
+    n_input=n_obs,
+    n_remaining=n_obs if n_obs > min_cells else 0,
+    fail_on_empty=fail_on_empty,
+    reason=f'the dataset has {n_obs} cells, but rank_genes_groups requires more than min_cells={min_cells}.',
+    param='rank_genes_groups.min_cells',
+    value=min_cells,
+    module='marker_genes',
+    dataset=snakemake.wildcards.dataset,
+)
+
+def filter_groups(group_obs):
+    """
+    Select groups with at least min_groups_size observations and check whether any are left.
+
+    :param group_obs: one row per observation (cell or pseudobulk) with the group_key column
+    :return: groups to test, and whether to write an empty output instead
+    """
+    group_counts = group_obs[group_key].value_counts()
+    groups = group_counts[group_counts >= min_groups_size].index.tolist()
+    logging.info(f'Observations per group:\n{group_counts}')
+    unit = f'pseudobulks (samples in "{sample_key}")' if pseudobulk else 'cells'
+    write_empty_output = check_empty(
+        n_input=n_obs,
+        n_remaining=obs[group_key].isin(groups).sum(),
+        fail_on_empty=fail_on_empty,
+        reason=(
+            f'no group in "{group_key}" has at least min_groups_size={min_groups_size} {unit}. '
+            f'The largest group has {group_counts.max() if len(group_counts) else 0}.'
+        ),
+        param='rank_genes_groups.min_groups_size',
+        value=min_groups_size,
+        module='marker_genes',
+        dataset=snakemake.wildcards.dataset,
+    )
+    return groups, write_empty_output
+
+
+if not write_empty_output:
+    if pseudobulk:
+        # estimate pseudobulks from metadata: one per group x sample,
+        # skipping those with fewer than 2 cells, like get_pseudobulks does
+        cells_per_pseudobulk = obs.value_counts(dropna=False)
+        group_obs = cells_per_pseudobulk[cells_per_pseudobulk >= 2].reset_index()
+    else:
+        group_obs = obs
+    groups, write_empty_output = filter_groups(group_obs)
+
+if write_empty_output:
+    write_empty(output_file, output_tsv)
+    exit(0)
+
 logging.info(f'Reading {input_file}...')
 adata = read_anndata(
     input_file,
@@ -73,11 +127,6 @@ adata = read_anndata(
     stride=int(n_obs / 5),
 )
 logging.info(adata.__str__())
-
-if adata.n_obs <= min_cells:
-    logging.info('Too few cells in object, skipping marker genes')
-    write_empty(adata, output_file, output_tsv)
-    exit(0)
 
 if 'feature_name' in adata.var.columns:
     adata.var_names = adata.var['feature_name'].astype(str)
@@ -101,15 +150,11 @@ if pseudobulk:
     # compute marker genes for all genes, because sample size is way more manageable
     args['n_genes'] = adata.n_vars
 
-# filter groups with more than 1 observation
-groups_counts = adata.obs[group_key].value_counts()
-groups = groups_counts[groups_counts >= min_groups_size].index.tolist()
-logging.info(groups_counts[groups])
-
-if not groups:
-    logging.info('No groups large enough for testing, writing empty output')
-    write_empty(adata, output_file, output_tsv)
-    exit(0)
+    # recount groups on the actual pseudobulks
+    groups, write_empty_output = filter_groups(adata.obs)
+    if write_empty_output:
+        write_empty(output_file, output_tsv)
+        exit(0)
 
 logging.info(f'Running marker genes analysis for {group_key} and args={args}...')
 rank_gene_func(

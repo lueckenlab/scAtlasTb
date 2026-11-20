@@ -8,6 +8,7 @@ rule rank_genes_groups:
         args=lambda wildcards: mcfg.get_from_parameters(wildcards, 'rank_genes_groups', default={}),
         sample=lambda wildcards: mcfg.get_from_parameters(wildcards, 'sample'),
         layer=lambda wildcards: mcfg.get_from_parameters(wildcards, 'layer', default='X'),
+        fail_on_empty=lambda wildcards: mcfg.get_from_parameters(wildcards, 'fail_on_empty', default=True),
     conda:
         get_env(config, 'scanpy') #, gpu_env='rapids_singlecell')
     resources:
