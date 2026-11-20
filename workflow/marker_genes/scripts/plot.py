@@ -45,7 +45,7 @@ adata = read_anndata(
 if 'feature_name' in adata.var.columns:
     adata.var_names = adata.var['feature_name'].astype(str)
 
-if adata.n_obs == 0 or marker_gene_key not in adata.uns.keys():
+if adata.n_obs == 0 or marker_gene_key not in adata.uns or not adata.uns[marker_gene_key]:
     logging.info(f'No marker genes found for group {group_key}, writing empty output')
     plt.savefig(output_rankplot)
     exit(0)
