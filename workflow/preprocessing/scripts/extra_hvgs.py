@@ -43,26 +43,21 @@ def _compute_group_mapping(obs, union_keys):
         .agg('--'.join, axis=1)
     )
 
-def _build_ordered_index(adata, valid_mapping, batch_key, min_cells):
-    """Filter and sort cells for HVG selection.
+def _build_ordered_index(obs, valid_mapping, batch_key):
+    """Sort retained cells for HVG selection.
 
-    Orders by group label and/or `batch_key`.
+    `obs` must already be filtered by the batch mask. If `valid_mapping` is
+    given, only its cells are kept (it must be a subset of `obs`). Orders by
+    group label and/or `batch_key`.
     """
-    logging.info(f'Before filtering for HVG selection: {adata.shape}')
-    batch_mask = _filter_batch(adata, batch_key=batch_key, min_cells=min_cells)
-
-    if batch_key:
-        assert batch_key in adata.obs.columns, f"Column '{batch_key}' not found in adata.obs"
-
+    sort_cols = [batch_key] if batch_key else []
     if valid_mapping is not None:
-        sort_cols = ['_group_label', batch_key] if batch_key else ['_group_label']
-        adata.obs['_group_label'] = valid_mapping
-        return adata.obs.loc[valid_mapping.index].sort_values(sort_cols, kind='stable').index.tolist()
+        obs = obs.loc[valid_mapping.index].assign(_group_label=valid_mapping)
+        sort_cols = ['_group_label'] + sort_cols
 
-    filtered_idx = adata.obs_names[batch_mask].tolist()
-    if batch_key:
-        return adata.obs.loc[filtered_idx].sort_values(batch_key, kind='stable').index.tolist()
-    return filtered_idx
+    if not sort_cols:
+        return obs.index.tolist()
+    return obs.sort_values(sort_cols, kind='stable').index.tolist()
 
 
 input_file = snakemake.input[0]
@@ -153,12 +148,18 @@ if remove_genes:
 
 adata.var[hvg_column_name] = False
 
+# filter cells that would break HVG function (missing or too-small batches)
+if batch_key:
+    assert batch_key in adata.obs.columns, f"Column '{batch_key}' not found in adata.obs"
+batch_mask = _filter_batch(adata, batch_key=batch_key, min_cells=min_cells)
+filtered_obs = adata.obs[batch_mask]
+
 if union_over is not None:
     logging.info(f'Compute highly variable genes per {union_over} with args={args}...')
 
-    # Normalize union_over to a list and map each cell to its group label
+    # Normalize union_over to a list and map each retained cell to its group label
     union_keys = [union_over] if isinstance(union_over, str) else union_over
-    group_mapping = _compute_group_mapping(adata.obs, union_keys)
+    group_mapping = _compute_group_mapping(filtered_obs, union_keys)
 
     # Filter out groups below the minimum cell threshold (operate on filtered obs)
     group_counts = group_mapping.value_counts()
@@ -177,7 +178,7 @@ if union_over is not None:
 
         logging.info(f'Before filtering for HVG selection: {adata.shape}')
         # build ordered index and single-subset adata (rows + nonzero genes)
-        new_index = _build_ordered_index(adata, valid_mapping, batch_key, min_cells)
+        new_index = _build_ordered_index(filtered_obs, valid_mapping, batch_key)
         adata = adata[new_index, adata.var['nonzero_genes']].copy()
         logging.info(f'After filtering for HVG selection: {adata.shape}')
 
@@ -204,8 +205,8 @@ else:
     logging.info(f'Select features for all cells with arguments: {args}...')
 
     logging.info(f'Before filtering for HVG selection: {adata.shape}')
-    # build ordered index and subset using helper (handles batch mask internally)
-    new_index = _build_ordered_index(adata, None, batch_key, min_cells)
+    # build ordered index and subset to retained cells + nonzero genes
+    new_index = _build_ordered_index(filtered_obs, None, batch_key)
     adata = adata[new_index, adata.var['nonzero_genes']].copy()
     logging.info(f'After filtering for HVG selection: {adata.shape}')
     
