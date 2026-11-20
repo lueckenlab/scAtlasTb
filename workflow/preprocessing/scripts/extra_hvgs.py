@@ -56,7 +56,8 @@ logging.info(f'args: {args}')
 logging.info(f'dask: {dask}')
 
 logging.info(f'Read {input_file}...')
-layer = 'layers/counts' if args.get('flavor') == 'seurat_v3' else 'layers/normcounts'
+# both seurat_v3 flavors expect raw counts
+layer = 'layers/counts' if args.get('flavor') in ('seurat_v3', 'seurat_v3_paper') else 'layers/normcounts'
 adata = read_anndata(
     input_file,
     X=layer,
