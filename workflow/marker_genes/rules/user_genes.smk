@@ -1,6 +1,17 @@
+def get_plot_user_input(wildcards):
+    files = dict(zarr=mcfg.get_input_file(**wildcards))
+    # add group_order file as input, so that changes to the file trigger reruns
+    group_order = mcfg.get_from_parameters(wildcards, 'plot', default={}).get('group_order')
+    if isinstance(group_order, dict):
+        group_order = group_order.get(wildcards.group)
+    if isinstance(group_order, str) and Path(group_order).is_file():
+        files['group_order'] = group_order
+    return files
+
+
 rule plot_user:
     input:
-        zarr=lambda wildcards: mcfg.get_input_file(**wildcards),
+        unpack(get_plot_user_input)
     output:
         plots=directory(mcfg.image_dir / paramspace.wildcard_pattern / 'group={group}' / 'user_markers'),
     params:

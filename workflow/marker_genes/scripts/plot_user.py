@@ -12,7 +12,8 @@ from utils.misc import dask_compute, ensure_dense
 
 sc.set_figure_params(frameon=False)
 plt.rcParams['figure.figsize'] = 30, 25
-input_file = snakemake.input[0]
+input_file = snakemake.input.zarr
+group_order_file = snakemake.input.get('group_order')
 output_png = snakemake.output.plots
 Path(output_png).mkdir(parents=True, exist_ok=True)
 
@@ -27,25 +28,20 @@ group_order = args.pop('group_order', None)
 
 
 def parse_group_order(group_order):
-    if isinstance(group_order, dict):
+    # group_order file is resolved by the rule and only present as input if it exists
+    if group_order_file:
+        group_order = Path(group_order_file).read_text().splitlines()
+    elif isinstance(group_order, dict):
         group_order = group_order.get(group_key)
 
     if group_order is None:
         return None
 
     if isinstance(group_order, str):
-        # If the provided string is a path to a text file, read the file
-        # and treat each non-empty line as one group in order.
-        p = Path(group_order)
-        if p.exists() and p.is_file():
-            try:
-                order = [line.strip() for line in p.read_text().splitlines() if line.strip()]
-            except Exception as exc:
-                raise ValueError(f'Could not read group_order file {group_order}: {exc}')
-        else:
-            order = [group.strip() for group in group_order.split(',') if group.strip()]
-    elif isinstance(group_order, (list, tuple)):
-        order = [str(group) for group in group_order if group is not None and str(group) != '']
+        group_order = group_order.split(',')
+
+    if isinstance(group_order, (list, tuple)):
+        order = [str(group).strip() for group in group_order if group is not None and str(group).strip()]
     else:
         raise ValueError(
             'Invalid group_order format. Expected a YAML list or comma-separated string '
