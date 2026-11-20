@@ -68,7 +68,6 @@ def _build_ordered_index(adata, valid_mapping, batch_key, min_cells):
 input_file = snakemake.input[0]
 output_file = snakemake.output[0]
 args = snakemake.params.get('args', {})
-batch_key = args.get('batch_key') if isinstance(args, dict) else None
 extra_hvg_args = snakemake.params.get('extra_hvgs', {})
 overwrite_args = snakemake.params.get('overwrite_args', {})
 union_over = extra_hvg_args.get('union_over')
@@ -95,6 +94,9 @@ if isinstance(overwrite_args, dict):
     args |= overwrite_args
     for key in sorted(overwrite_args.keys()):
         hvg_column_name += f'-{key}={overwrite_args[key]}'
+
+# resolve after overrides so filtering uses the same batch key as Scanpy
+batch_key = args.get('batch_key')
 
 logging.info(f'args: {args}')
 logging.info(f'dask: {dask}')
