@@ -15,7 +15,7 @@ By default, dataset configurations are available under `configs` at the top-leve
 ### Load data
 
 Files can either be read from a specified input file or downloaded from an URL, CELLxGENE or DCP directly.
-Which way a dataset is loaded, depends on the [dataset mapping](#dataset-file-mapping).
+Which way a dataset is loaded, depends on the [dataset definition file](#dataset-definition-file).
 
 ### Aggregate Metadata
 
