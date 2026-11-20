@@ -22,7 +22,7 @@ EXECUTE=true
 
 while getopts "hf:c:nq" OPTION; do
     case $OPTION in
-        h) usage; exit 1;;
+        h) usage; exit 0;;
         f) FILE=$OPTARG;;
         c) CONDA_CMD=$OPTARG;;
         n) EXECUTE=false;;

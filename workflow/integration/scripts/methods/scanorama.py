@@ -60,6 +60,7 @@ clean_categorical_column(adata, batch_key)
 
 # subset features
 adata, _ = subset_hvg(adata, var_column='integration_features')
+var = adata.var.copy()
 
 batch_categories = adata.obs[batch_key].unique().tolist()
 adatas = [
@@ -80,6 +81,8 @@ adata = merge_adata(
     keys=batch_categories,
     index_unique=None
 )
+# anndata.concat drops var columns, restore them
+adata.var = var.loc[adata.var_names]
 
 # save full feature output
 # adata.obsm["X_full"] = adata.X

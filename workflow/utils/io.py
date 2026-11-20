@@ -18,8 +18,7 @@ from dask import config as da_config
 da_config.set(**{'array.slicing.split_large_chunks': False})
 
 from .subset_slots import subset_slot, set_mask_per_slot
-from .misc import dask_compute
-
+from .misc import dask_compute, ensure_sparse
 
 ALL_SLOTS = ['X', 'obs', 'var', 'obsm', 'varm', 'obsp', 'varp', 'layers', 'uns', 'raw']
 
@@ -228,7 +227,7 @@ def read_partial(
 
         shapes = {
             k: _shape(v)
-            for k, v in slots.items() if hasattr(v,'shape') or isinstance(v,dict)
+            for k, v in slots.items() if hasattr(v,'shape') or isinstance(v,dict) and k != 'uns'
         }
         message = f'Error reading {file}\nshapes: {pformat(shapes)}'
         raise ValueError(message) from e
@@ -328,20 +327,19 @@ def _read_slot_dask(
     elem = group[slot]
     iospec = ad._io.specs.get_spec(elem)
     
-    if iospec.encoding_type in ("csr_matrix", "csc_matrix"):
-        if backed:
-            print_flushed(f'Read {slot} as backed sparse dask array...', verbose=verbose)
-            elem = sparse_dataset(elem)
-            return sparse_dataset_as_dask(elem, stride=stride)
+    is_sparse = iospec.encoding_type in ("csr_matrix", "csc_matrix")
+
+    if is_sparse and backed:
+        print_flushed(f'Read {slot} as backed sparse dask array...', verbose=verbose)
+        return sparse_dataset_as_dask(sparse_dataset(elem), stride=stride)
+
+    elif is_sparse or iospec.encoding_type in force_sparse_types or force_slot_sparse:
+        # csr_matrix leaves csr blocks untouched and converts dense/csc blocks; scipy picks the
+        # smallest safe index dtype per block, anndata casts to int64 on write
         print_flushed(f'Read {slot} as sparse dask array...', verbose=verbose)
         elem = read_as_dask_array(elem, chunks=chunks, verbose=verbose)
-        return elem.map_blocks(csr_matrix_int64_indptr, dtype=elem.dtype)
-    
-    elif iospec.encoding_type in force_sparse_types or force_slot_sparse:
-        print_flushed(f'Read {slot} as dask array and convert blocks to csr_matrix...', verbose=verbose)
-        elem = read_as_dask_array(elem, chunks=chunks, verbose=verbose)
-        return elem.map_blocks(csr_matrix_int64_indptr, dtype=elem.dtype)
-    
+        return elem.map_blocks(csr_matrix, dtype=elem.dtype, meta=csr_matrix((0, 0), dtype=elem.dtype))
+
     elif iospec.encoding_type == "array":
         print_flushed(f'Read {slot} as dask array...', verbose=verbose)
         return read_as_dask_array(elem, chunks=chunks, verbose=verbose)
@@ -363,17 +361,6 @@ def _read_slot_default(group, slot, force_sparse_types, force_slot_sparse, backe
         return csr_matrix(read_elem(elem))
     else:
         return read_elem(elem)
-
-
-def csr_matrix_int64_indptr(x):
-    if not isinstance(x, csr_matrix):
-        x = csr_matrix(x)
-    if isinstance(x.indptr, np.int32):
-        x.indptr = x.indptr.astype(np.int64)
-    if isinstance(x.indices, np.int32):
-        # seems to be necessary to avoid "ValueError: Output dtype not compatible with inputs."
-        x.indices = x.indices.astype(np.int64)
-    return x
 
 
 # deprecated
@@ -443,19 +430,12 @@ def read_anndata_or_mudata(file):
 
 
 def write_zarr(adata, file, compute=False):
-    def sparse_coo_to_csr(matrix):
-        from dask import array as da
-        
-        if isinstance(matrix, da.Array) and type(matrix._meta).__name__ == 'COO':
-            matrix = matrix.map_blocks(lambda x: x.tocsr(), dtype=matrix.dtype)
-        return matrix
-    
     if adata.is_view:
         adata = adata.copy()
 
-    adata.X = sparse_coo_to_csr(adata.X)
-    for layer in adata.layers:
-        adata.layers[layer] = sparse_coo_to_csr(adata.layers[layer])
+    # Convert any sparse COO variants (sparse.COO, scipy coo_matrix, non-Dask)
+    # to CSR before writing, since the zarr writer requires indptr (CSR/CSC only).
+    adata = ensure_sparse(adata)
         
     # fix dtype for NaN obs columns
     for col in adata.obs.columns:

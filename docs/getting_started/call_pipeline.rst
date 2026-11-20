@@ -89,11 +89,12 @@ You can ignore these for now.
    Building DAG of jobs...
    Job stats:
    job                 count
-   ----------------  -------
-   all                     1
-   common_dag              1
-   common_rulegraph        1
-   total                   3
+   ------------------  -------
+   all                       1
+   common_dag                1
+   common_rulegraph          1
+   common_save_config        1
+   total                     4
 
 List all available rules
 ------------------------
@@ -139,17 +140,15 @@ The rest are needed by the pipeline, but can't be called by the user, you can ju
 Specify which workflow/rule you want to run
 -------------------------------------------
 
-Given the config above, you can call the integration workflow by specifying the ``integration_all`` target:
+Given the quickstart config (``configs/quickstart.yaml``), you can call the integration workflow by specifying the ``integration_all`` target:
 
 .. code-block:: bash
 
-   bash run_pipeline.sh integration_all -n
+   bash run_pipeline.sh integration_all -nq
 
-This should list all the rules with details such as inputs, outputs and parameters, as well as the following summary:
+Without ``-q``, this lists all the jobs with details such as inputs, outputs and parameters. With ``-q``, Snakemake only prints the following summary:
 
 .. code-block:: text
-
-   ...
 
    Job stats:
    job                                    count
@@ -157,23 +156,17 @@ This should list all the rules with details such as inputs, outputs and paramete
    integration_all                            1
    integration_barplot_per_dataset            3
    integration_benchmark_per_dataset          1
-   integration_compute_umap                   6
-   integration_plot_umap                      6
-   integration_postprocess                    6
+   integration_compute_umap                   9
+   integration_plot_umap                      9
+   integration_postprocess                    9
    integration_prepare                        1
-   integration_run_method                     3
+   integration_run_method                     6
    preprocessing_assemble                     1
+   preprocessing_filter_genes                 1
    preprocessing_highly_variable_genes        1
    preprocessing_normalize                    1
    preprocessing_pca                          1
-   total                                     31
-
-   Reasons:
-       (check individual jobs above for details)
-       input files updated by another job:
-           integration_all, integration_barplot_per_dataset, integration_benchmark_per_dataset, integration_compute_umap, integration_plot_umap, integration_postprocess, integration_prepare, integration_run_method, preprocessing_assemble, preprocessing_highly_variable_genes, preprocessing_pca                                                                                             
-       missing output files:
-           integration_benchmark_per_dataset, integration_compute_umap, integration_postprocess, integration_prepare, integration_run_method, preprocessing_assemble, preprocessing_highly_variable_genes, preprocessing_normalize, preprocessing_pca
+   total                                     44
 
    This was a dry-run (flag -n). The order of jobs does not reflect the order of execution.
 

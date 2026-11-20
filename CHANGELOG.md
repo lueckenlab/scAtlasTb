@@ -1,5 +1,17 @@
 # Changelog
 
+## 13.11.2026 Utils: operator queries and simpler sparse dask reads
+
+PR: https://github.com/lueckenlab/scAtlasTb/pull/394
+
+- Wildcard filtering (`subset_by_query`) accepts operator dicts: `eq`, `ne`, `in`, `notin`.
+- `_filter_batch` ignores NaN batches and returns an all-`False` mask when no batch is left.
+- Sparse dask reads no longer cast index dtypes; sparse and forced-sparse slots (`X`, `layers`, `raw/X`) are read as CSR blocks through one code path.
+- `write_zarr` uses `ensure_sparse`, which now also converts dask arrays of `sparse.COO` blocks.
+
+### BREAKING CHANGE
+- `write_zarr` converts dense `X`, `layers` and `raw.X` to CSR before writing. Previously, dense matrices were stored dense.
+
 ## 02.04.2026 Metrics prepare optimisation
 
 PR: https://github.com/HCA-integration/scAtlasTb/pull/361

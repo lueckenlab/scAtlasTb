@@ -10,6 +10,7 @@ dependencies:
   - pandas<3
   - dask
   - sparse
+  - scipy<1.17
   - pip
   - pip:
     - git+https://github.com/theislab/scib.git@main

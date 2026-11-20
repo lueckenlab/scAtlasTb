@@ -11,3 +11,4 @@ Helper modules
    merge
    collect
    uncollect
+   common

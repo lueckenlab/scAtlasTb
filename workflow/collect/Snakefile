@@ -43,7 +43,7 @@ rule collect:
     output:
         zarr=directory(mcfg.out_dir / f'{params.wildcard_pattern}.zarr'),
     params:
-        sep=lambda wildcards: mcfg.get_from_parameters(wildcards, 'sep', default='_'),
+        sep=lambda wildcards: mcfg.get_from_parameters(wildcards, 'sep', default='--'),
         same_slots=lambda wildcards: mcfg.get_from_parameters(wildcards, 'same_slots', default=[]),
         merge_slots=lambda wildcards: mcfg.get_from_parameters(wildcards, 'merge_slots', default=[]),
         skip_slots=lambda wildcards: mcfg.get_from_parameters(wildcards, 'skip_slots', default=[]),

@@ -6,6 +6,7 @@ dependencies:
   - python=3.11.9
   - anndata=0.10
   - scanpy=1.10
+  - scipy<1.17
   - leidenalg
   - faiss-cpu
   - dask<2024.8

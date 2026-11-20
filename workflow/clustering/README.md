@@ -5,7 +5,7 @@ The code is optimised for memory efficiency and speed, allowing for clustering o
 
 ## Configuration
 
-Example configuration for clustering can be found in `workflow/clustering/config.yaml` showcasing the setup for hierarchical (iterative) sub-clustering.
+Example configuration for clustering can be found in `workflow/clustering/test/config.yaml` showcasing the setup for hierarchical (iterative) sub-clustering.
 
 ```yaml
 DATASETS:
@@ -76,7 +76,7 @@ DATASETS:
   - Default: Uses existing neighbors if available
 
 - **`hierarchy`**: Configuration for iterative sub-clustering
-  - Dictionary format: `{cluster_id: resolution}` (e.g., `{1: 0.1, 3: 0.2}`)
+  - Dictionary format: `{level: resolution}` (e.g., `{1: 0.1, 3: 0.2}`); levels up to the largest key are computed, levels missing from the dictionary use the value from `resolutions`
   - Integer format: Maximum hierarchy depth (e.g., `3`)
 
 ### Neighbor Computation
@@ -105,6 +105,7 @@ DATASETS:
   - `false` (default): Use CPU only
 
 - **`n_cell_cpu`**: Threshold for forcing CPU computation - CPU is used when dataset has fewer than this many cells (default: 100000)
+
 ## Calling the clustering script from the command line
 
 The clustering script is located at `workflow/clustering/scripts/clustering.py` and performs single-level clustering operations. For hierarchical clustering, you need to run the script multiple times in sequence.
@@ -169,7 +170,7 @@ For `--level > 1`, the script:
 - Automatically detects NVIDIA GPU availability
 - Uses RAPIDS implementation when GPU is available and beneficial
 - Falls back to scanpy for small datasets (< `n_cell_cpu` cells)
-- Includes heuristic checks for clustering quality with GPU fallback
+- Includes a heuristic check on the number and size of GPU clusters, falling back to the scanpy (CPU) implementation if it fails
 
 ### Output Format
 - Creates zarr-linked output preserving the original data structure

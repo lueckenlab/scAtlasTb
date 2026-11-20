@@ -131,6 +131,7 @@ def plot_violin(
     """
     # prepare data
     df = df[[category_key, covariate_key]].copy()
+    df = df.dropna(subset=[covariate_key])
     df[category_key] = df[category_key].astype(str)
     
     # get stats

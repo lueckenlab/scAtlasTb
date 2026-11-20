@@ -1,74 +1,93 @@
-  output_dir: data/out
-  images: images
-  use_gpu: false
+# =============================================================================
+# Global settings
+# =============================================================================
 
-  env_mode: local
+# Note: relative paths must be relative to the project root, not the directory of the config file.
+output_dir: data/out   # large/intermediate files
+images: images         # plots and smaller outputs
 
-  DATASETS:
+use_gpu: false
+env_mode: local
 
-    task_name: # custom task/workflow name
 
-      # input specification: map of module name to map of input file name to input file path
-      input:
-        preprocessing:
-          file_1: data/pbmc68k.h5ad
-        integration: preprocessing
-        metrics: integration
-      
-      # module configuration
+# =============================================================================
+# Tasks: define one or more named workflows, each with input and module config
+# =============================================================================
+
+DATASETS:
+
+  my_task: # ---------- custom task name (rename as needed) ----------
+
+    # -------------------------------------------------------------------------
+    # Input: map each module to its input files or the output of a prior module
+    # -------------------------------------------------------------------------
+    input:
       preprocessing:
-        highly_variable_genes:
-          n_top_genes: 2000
-        pca:
-          n_comps: 50
-        assemble:
-          - normalize
-          - highly_variable_genes
-          - pca
-      
-      # module configuration
-      integration:
-        raw_counts: layers/counts
-        norm_counts: layers/normcounts
-        batch: batch
-        methods:
-          unintegrated:
-          bbknn:
-          combat:
-          harmony_pytorch:
-          harmonypy:
-          scanorama:
-            batch_size: 100
-          scvi:
-            max_epochs: 10
-            early_stopping: true
-          drvi:
-            max_epochs: 10
-            early_stopping: true
-          sysvi:
-            max_epochs: 10
-            early_stopping: true
-            system_key: phase
+        file_1: data/pbmc68k.h5ad   # path to input file
+      integration: preprocessing    # use all outputs of preprocessing as input
+      metrics: integration          # use all outputs of integration as input
 
-      # module configuration
-      metrics:
-        unintegrated: layers/normcounts
-        batch: batch
-        label: bulk_labels
-        metrics:
-          - asw_batch
-          - graph_connectivity
-          - ilisi
-          - pcr_comparison
-          - ari
-          - asw_label
-          - cell_cycle
-          - clisi
-          - isolated_label_asw
-          - isolated_label_f1
-          - nmi
-          - morans_i_random
-          - kbet_pg
-          - pcr_random
-          - pcr
-          - pcr_genes
+    # -------------------------------------------------------------------------
+    # Module: preprocessing
+    # -------------------------------------------------------------------------
+    preprocessing:
+      highly_variable_genes:
+        n_top_genes: 2000
+      pca:
+        n_comps: 50
+      assemble:             # ordered list of steps to run
+        - normalize
+        - highly_variable_genes
+        - pca
+
+    # -------------------------------------------------------------------------
+    # Module: integration
+    # -------------------------------------------------------------------------
+    integration:
+      raw_counts: layers/counts        # key for raw count matrix in the data object
+      norm_counts: layers/normcounts   # key for normalized count matrix
+      batch: batch                     # column in obs used as batch key
+      methods:                         # list integration methods to run (omit value to use defaults)
+        unintegrated:
+        bbknn:
+        combat:
+        harmony_pytorch:
+        harmonypy:
+        scanorama:
+          batch_size: 100
+        # GPU methods: require `use_gpu: true` and the scvi-tools environment (CUDA)
+        # scvi:
+        #   max_epochs: 10
+        #   early_stopping: true
+        # drvi:
+        #   max_epochs: 10
+        #   early_stopping: true
+        # sysvi:
+        #   max_epochs: 10
+        #   early_stopping: true
+        #   system_key: phase
+
+    # -------------------------------------------------------------------------
+    # Module: metrics
+    # -------------------------------------------------------------------------
+    metrics:
+      unintegrated: layers/normcounts  # baseline embedding to compare against
+      batch: batch                     # column in obs used as batch key
+      label: bulk_labels               # column in obs used as cell type label
+      metrics:                         # list of metrics to compute
+        - asw_batch
+        - graph_connectivity
+        - ilisi
+        - pcr_comparison
+        # - kbet_pg  # requires the pegasus environment
+        - ari
+        - asw_label
+        - cell_cycle
+        - clisi
+        - isolated_label_asw
+        - isolated_label_f1
+        - nmi
+        - morans_i_random
+        - pcr_random
+        - pcr
+        - pcr_genes

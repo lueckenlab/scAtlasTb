@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python=3.11
   - scanpy=1.11
+  - scipy<1.17
   - anndata=0.11
   - zarr<3
   - pandas<3

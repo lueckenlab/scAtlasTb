@@ -5,6 +5,7 @@ Data preparation
    :maxdepth: 1
 
    load_data
+   exploration
    preprocessing
    label_harmonization
    celltype_prediction

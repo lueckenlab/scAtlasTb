@@ -9,3 +9,4 @@ Downstream analysis
    label_transfer
    majority_voting
    reference_mapping
+   sample_representation

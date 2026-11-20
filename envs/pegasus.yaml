@@ -9,6 +9,7 @@ dependencies:
   - dask<2024.8
   - dask-ml
   - sparse
+  - scipy<1.17
   - zarr<3
   - pandas<2.0
   - numpy<2.0
