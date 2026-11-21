@@ -120,9 +120,6 @@ args |= overwrite_args
 for key in sorted(overwrite_args.keys()):
     hvg_column_name += f'-{key}={overwrite_args[key]}'
 
-# drop options only understood by highly_variable_genes.py, not by Scanpy
-args.pop('large_batch_threshold', None)
-
 # min_cells comes only from overwrite_args (not a Scanpy argument, so pop it)
 # min_cells: minimum cells per batch (globally, or within each union_over group)
 # union_min_cells: minimum cells per union_over group

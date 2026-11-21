@@ -103,7 +103,6 @@ else:
     batch_key = hvg_args.get('batch_key')
     # batch-aware HVG fails for batches of ~10 cells or fewer (cell_ranger, seurat_v3)
     min_cells = hvg_args.pop('min_cells', 50)
-    large_batch_threshold = int(hvg_args.pop('large_batch_threshold', 20))
 
     # filter genes and cells that would break HVG function
     t0 = time.perf_counter()
@@ -119,19 +118,9 @@ else:
     if adata.n_obs == 0:
         _write_empty_output(adata, 'No data after filtering, write empty file...', linked=True)
     
-    # Gather batch metadata for heuristics/logging.
     n_batches = adata.obs[batch_key].nunique() if batch_key in adata.obs.columns else 0
     logging.info(f'Filtered data shape: n_obs={adata.n_obs}, n_vars={adata.n_vars}, n_batches={n_batches}')
 
-    # For many batches, dask task overhead commonly dominates HVG runtime.
-    if dask and n_batches >= large_batch_threshold:
-        logging.info(
-            'Detected many batches (n_batches=%s >= %s); switching to in-memory compute for HVG.',
-            n_batches,
-            large_batch_threshold,
-        )
-        dask = False
-    
     if dask:
         logging.info('Keep X as a lazy dask array for HVG computation...')
     else:
