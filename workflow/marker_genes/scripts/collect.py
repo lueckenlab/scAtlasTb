@@ -14,15 +14,8 @@ uns_list = [
     for file in [input_zarr]+input_files
 ]
 uns_all = uns_list[0]
-empty_marker_keys = set()
 for uns in uns_list[1:]:
-    empty_marker_keys.update(
-        key for key, value in uns.items()
-        if key.startswith('marker_genes_group=') and not value
-    )
     uns_all |= uns
-for key in empty_marker_keys:
-    uns_all[key] = {}
 adata = ad.AnnData(uns=uns_all)
 
 logging.info(f'Writing {output_file}...')
