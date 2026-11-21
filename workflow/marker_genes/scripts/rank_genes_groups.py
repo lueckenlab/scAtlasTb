@@ -5,10 +5,11 @@ import warnings
 warnings.filterwarnings('ignore')
 import logging
 logging.basicConfig(level=logging.INFO)
+import anndata as ad
 import scanpy as sc
 rank_gene_func = sc.tl.rank_genes_groups
 
-from utils.io import read_anndata, write_zarr_linked
+from utils.io import read_anndata, write_zarr
 from utils.accessors import subset_hvg
 from utils.assertions import check_empty
 from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
@@ -19,13 +20,8 @@ from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 #     rank_gene_func = sc.tl.rank_genes_groups
 
 def write_empty(output_file, output_tsv):
-    adata = read_anndata(input_file, dask=True, backed=True)
-    write_zarr_linked(
-        adata,
-        in_dir=input_file,
-        out_dir=output_file,
-        slot_map={'X': layer}
-    )
+    # no result for this group: the marker gene key is absent from .uns
+    write_zarr(ad.AnnData(), output_file)
 
     markers_df = pd.DataFrame(
         columns=[
@@ -168,18 +164,8 @@ rank_gene_func(
 )
 
 logging.info(f'Writing {output_file}...')
-if input_file.endswith('.h5ad'):
-    logging.info('Retrieving original data from h5ad...')
-    new_uns = adata.uns[key]
-    adata = read_anndata(input_file, dask=True, backed=True)
-    adata.uns[key] = new_uns
-write_zarr_linked(
-    adata,
-    in_dir=input_file,
-    out_dir=output_file,
-    files_to_keep=['uns'],
-    slot_map={'X': layer}
-)
+# only the result for this group, collect adds it to the original data
+write_zarr(ad.AnnData(uns={key: adata.uns[key]}), output_file)
 
 
 logging.info('Create DEG dataframe...')

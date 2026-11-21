@@ -10,7 +10,8 @@ logging.basicConfig(level=logging.INFO)
 from utils.io import read_anndata
 from utils.misc import dask_compute, ensure_dense
 
-input_file = snakemake.input[0]
+input_file = snakemake.input.zarr
+input_markers = snakemake.input.markers
 output_rankplot = snakemake.output.rankplot
 output_dotplot = snakemake.output.dotplot
 output_matrixplot = snakemake.output.matrixplot
@@ -31,24 +32,25 @@ args['key'] = marker_gene_key
 n_genes = args.get('n_genes', 10)
 n_groups_per_split = args.pop('n_groups_per_split', int(100 / n_genes))
 
+markers = read_anndata(input_markers, uns='uns').uns
+if marker_gene_key not in markers:
+    logging.info(f'No marker genes found for group {group_key}, writing empty output')
+    plt.savefig(output_rankplot)
+    exit(0)
+
 logging.info(f'Reading {input_file}...')
 adata = read_anndata(
     input_file,
     X=layer,
     obs='obs',
     var='var',
-    uns='uns',
     dask=True,
     backed=True,
 )
+adata.uns[marker_gene_key] = markers[marker_gene_key]
 
 if 'feature_name' in adata.var.columns:
     adata.var_names = adata.var['feature_name'].astype(str)
-
-if adata.n_obs == 0 or marker_gene_key not in adata.uns.keys():
-    logging.info(f'No marker genes found for group {group_key}, writing empty output')
-    plt.savefig(output_rankplot)
-    exit(0)
 
 # get rank_genes_groups results
 rank_genes_df = sc.get.rank_genes_groups_df(

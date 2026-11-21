@@ -22,7 +22,8 @@ rule rank_genes_groups:
 
 rule plot:
     input:
-        zarr=rules.rank_genes_groups.output.zarr,
+        zarr=lambda wildcards: mcfg.get_input_file(**wildcards),
+        markers=rules.rank_genes_groups.output.zarr,
     output:
         rankplot=mcfg.image_dir / paramspace.wildcard_pattern / 'group={group}' / 'rank_plot.png',
         dotplot=directory(mcfg.image_dir / paramspace.wildcard_pattern / 'group={group}' / 'dotplot'),
