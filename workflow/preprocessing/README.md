@@ -92,5 +92,17 @@ Unlike `batch_key`, `min_cells` is not inherited from `highly_variable_genes`: `
 
 Batch filtering exists because batch-aware HVG selection fails on very small batches: `cell_ranger` and `seurat_v3` raise errors (or, for `seurat_v3` with a single cell, crash the process) when a batch has only a handful of cells.
 
+## Dask and HVG selection
+
+HVG selection (`highly_variable_genes`, `extra_hvgs`) loads the matrix into memory by default (`dask: false` for these steps). With `dask: true`, the way the matrix is held is chosen automatically (`utils.misc.hvg_dask_strategy`):
+
+| `batch_key` | Scanpy | Matrix | Why |
+|---|---|---|---|
+| not set | any | lazy dask array | one pass over the data: fastest, least memory |
+| set | ≥ 1.12 | persisted dask array | as fast as in memory, lower peak memory with many batches |
+| set | < 1.12 | loaded into memory | Scanpy reads the matrix once per batch and is many times slower on dask arrays before 1.12 |
+
+With `extra_hvgs.union_over`, this is applied to each group separately, so only one group is held in memory at a time. Peak memory depends on the size of the largest batch, since Scanpy copies each batch's cells.
+
 All step-specific keys (`normalize`, `filter`, `highly_variable_genes`, `extra_hvgs`, `pca`, `neighbors`, `umap`) as well as the global knobs `dask`, `n_threads` and `resources` can be set under `defaults: preprocessing:` and overridden per dataset.
 The per-step behaviour and all parameters are described in the *Functional description* section of the module documentation page.

@@ -116,8 +116,10 @@ else:
     min_cells ← args.pop('min_cells', 50)
     drop batches of batch_key with < min_cells cells (utils.accessors._filter_batch)
     subset genes to var['nonzero_genes']
-    if not dask: load X into memory
-    else: keep X as a lazy dask array
+    strategy ← utils.misc.hvg_dask_strategy(dask, batch_key):
+        no dask → compute; no batch_key → lazy;
+        batch_key → persist (Scanpy ≥ 1.12) or compute (older Scanpy)
+    X ← compute() / persist() / keep lazy (unchunked along genes)
     scanpy.pp.highly_variable_genes(adata, **args)
     map highly_variable, means, dispersions, dispersions_norm,
         highly_variable_nbatches, highly_variable_intersection back to full var
@@ -143,6 +145,7 @@ Additional gene mask, independent of the PCA input.
 
 ```text
 args ← highly_variable_genes config (drop subset, min_cells) | overwrite_args
+strategy ← utils.misc.hvg_dask_strategy(dask, batch_key)   # as for highly_variable_genes
 column ← 'extra_hvgs' + ''.join(f'-{k}={v}' for k in sorted(overwrite_args))
 min_cells ← args.pop('min_cells', 50)                              # per batch
 union_min_cells ← extra_hvgs.union_min_cells or min_cells            # per union_over group
@@ -153,12 +156,12 @@ if union_over:
     within each group, drop cells with missing batch_key or in batches < min_cells
     drop groups < union_min_cells (counted after batch filtering)
     subset to retained cells and nonzero_genes, sorted by group, then batch_key
-    for each group: scanpy.pp.highly_variable_genes(group, **args); column |= group HVGs
+    for each group: prepare group X by strategy; scanpy.pp.highly_variable_genes(group, **args); column |= group HVGs
     (falls back to all cells if no valid group remains)
 if no union_over (or fallback):
     drop cells with missing batch_key or in batches < min_cells (across all cells)
     subset to retained cells and nonzero_genes, sorted by batch_key
-    scanpy.pp.highly_variable_genes(adata, **args)
+    prepare X by strategy; scanpy.pp.highly_variable_genes(adata, **args)
 map back to full var (False for filtered genes); set column True for matched extra_genes
 ```
 

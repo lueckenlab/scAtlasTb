@@ -18,7 +18,7 @@ import anndata as ad
 
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import _filter_batch, match_genes
-from utils.misc import dask_compute
+from utils.misc import hvg_dask_strategy, prepare_hvg_matrix
 from utils.processing import sc, USE_GPU
 rsc = sc
 
@@ -129,9 +129,11 @@ logging.info(f'min_cells={min_cells}, union_min_cells={union_min_cells}')
 
 # resolve after overrides so filtering uses the same batch key as Scanpy
 batch_key = args.get('batch_key')
+strategy = hvg_dask_strategy(dask, batch_key)
 
 logging.info(f'args: {args}')
 logging.info(f'dask: {dask}')
+logging.info(f'X for HVG computation: {strategy}')
 
 logging.info(f'Read {input_file}...')
 # both seurat_v3 flavors expect raw counts
@@ -223,13 +225,11 @@ if union_over is not None:
         if adata.n_obs == 0:
             _write_empty_result(adata, output_file, hvg_column_name)
 
-        # Compute HVGs per group and accumulate results via union
-        adata.X = adata.X.rechunk((200_000, -1))
+        # Compute HVGs per group and accumulate results via union.
+        # X is prepared per group, so at most one group is held in memory.
         for group, cell_idx in tqdm(valid_mapping.groupby(valid_mapping), miniters=1, desc='Computing HVGs per group'):
             _ad = adata[cell_idx.index].copy()
-
-            if not dask:
-                _ad = dask_compute(_ad, layers='X')
+            _ad = prepare_hvg_matrix(_ad, strategy)
             if use_gpu:
                 rsc.get.anndata_to_GPU(_ad)
 
@@ -255,13 +255,9 @@ if union_over is None:
     if adata.n_obs == 0:
         _write_empty_result(adata, output_file, hvg_column_name)
 
+    adata = prepare_hvg_matrix(adata, strategy)
     if use_gpu:
         sc.get.anndata_to_GPU(adata)
-
-    adata.X = adata.X.rechunk((200_000, -1))
-    if not dask:
-        logging.info('Compute matrix...')
-        adata = dask_compute(adata, layers='X')
 
     with TqdmCallback(desc=f'Select features with arguments: {args}...', miniters=1):
         sc.pp.highly_variable_genes(adata, **args)

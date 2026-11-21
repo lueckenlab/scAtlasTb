@@ -13,6 +13,7 @@ from pprint import pformat
 
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import _filter_batch
+from utils.misc import hvg_dask_strategy, prepare_hvg_matrix
 from utils.processing import sc, USE_GPU
 
 input_file = snakemake.input[0]
@@ -121,14 +122,12 @@ else:
     n_batches = adata.obs[batch_key].nunique() if batch_key in adata.obs.columns else 0
     logging.info(f'Filtered data shape: n_obs={adata.n_obs}, n_vars={adata.n_vars}, n_batches={n_batches}')
 
-    if dask:
-        logging.info('Keep X as a lazy dask array for HVG computation...')
-    else:
-        logging.info('Compute X before HVG computation...')
-        t0 = time.perf_counter()
-        adata.X = adata.X.compute()
-        _log_timing(t0, 'Compute X')
-    
+    strategy = hvg_dask_strategy(dask, batch_key)
+    logging.info('X for HVG computation: %s', strategy)
+    t0 = time.perf_counter()
+    adata = prepare_hvg_matrix(adata, strategy)
+    _log_timing(t0, 'Preparing X')
+
     # make sure data is on GPU for rapids_singlecell
     if USE_GPU:
         logging.info('Move data to GPU for RAPIDS SingleCell...')
