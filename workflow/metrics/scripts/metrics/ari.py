@@ -39,13 +39,17 @@ def ari_leiden_y(adata, output_type, batch_key, label_key, **kwargs):
 
 
 def ari_kmeans_y(adata, output_type, batch_key, label_key, **kwargs):
-    from scib_metrics import nmi_ari_cluster_labels_kmeans
+    import scib_metrics
     
+    if output_type == 'knn':
+        return np.nan
+
     labels = rename_categories(adata, label_key)
-    adata = select_neighbors(adata, output_type)
+    X = adata.obsm['X_emb'] if output_type == 'embed' else adata.obsm['X_pca']
+    X = X if isinstance(X, np.ndarray) else np.asarray(X.todense())
 
     scores = scib_metrics.nmi_ari_cluster_labels_kmeans(
-        X=scanpy_to_neighborsresults(adata),
+        X=X,
         labels=labels,
     )
     return scores['ari']

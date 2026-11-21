@@ -16,9 +16,9 @@ morans_i_genes	bio_conservation	full,embed,knn	full,knn	False	False	False	True	s
 morans_i_random	batch_correction	full,embed,knn	knn	False	False	False	False	scib	cpu	1
 morans_i_genescore	bio_conservation	full,embed,knn	knn	False	False	False	True	scanpy	cpu	1
 ari_leiden_y	bio_conservation	full,embed,knn	knn	False	False	False	False	scib_metrics	gpu	1
-ari_kmeans_y	bio_conservation	full,embed,knn	knn	False	False	False	False	scib_metrics	gpu	1
+ari_kmeans_y	bio_conservation	full,embed	embed	False	False	False	False	scib_metrics	gpu	1
 nmi_leiden_y	bio_conservation	full,embed,knn	knn	False	False	False	False	scib_metrics	gpu	1
-nmi_kmeans_y	bio_conservation	full,embed,knn	knn	False	False	False	False	scib_metrics	gpu	1
+nmi_kmeans_y	bio_conservation	full,embed	embed	False	False	False	False	scib_metrics	gpu	1
 asw_label_y	bio_conservation	full,embed	embed	False	False	False	False	scib_metrics	gpu	1
 asw_batch_y	batch_correction	full,embed	embed	False	False	False	False	scib_metrics	gpu	1
 bras_batch	batch_correction	full,embed	embed	False	False	False	False	scib_metrics	gpu	1

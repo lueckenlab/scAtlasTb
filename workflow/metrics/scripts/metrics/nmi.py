@@ -47,11 +47,12 @@ def nmi_leiden_y(adata, output_type, batch_key, label_key, **kwargs):
 def nmi_kmeans_y(adata, output_type, batch_key, label_key, **kwargs):
     import scib_metrics
 
-    labels = rename_categories(adata, label_key)
-    adata = select_neighbors(adata, output_type)
+    if output_type == 'knn':
+        return np.nan
 
-    X = adata.obsp['connectivities']
-    X = X if isinstance(X, np.ndarray) else X.toarray()
+    labels = rename_categories(adata, label_key)
+    X = adata.obsm['X_emb'] if output_type == 'embed' else adata.obsm['X_pca']
+    X = X if isinstance(X, np.ndarray) else np.asarray(X.todense())
 
     scores = scib_metrics.nmi_ari_cluster_labels_kmeans(
         X=X,
