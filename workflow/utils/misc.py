@@ -5,6 +5,26 @@ import hashlib
 import warnings
 
 
+def gene_labels(var: pd.DataFrame, symbol_key: str = 'feature_name') -> pd.Series:
+    """
+    Unique, readable gene labels for plots, indexed by var_names.
+
+    Uses the gene symbol in var[symbol_key] and appends the gene ID to symbols that occur
+    more than once, e.g. 'CD3D (ENSG00000167286)'. Falls back to var_names if there is
+    no symbol column or the symbol is missing.
+
+    :param var: adata.var with unique var_names (e.g. gene IDs)
+    :param symbol_key: column in var with gene symbols
+    :return: label per gene
+    """
+    ids = var.index.to_series().astype(str)
+    if symbol_key not in var.columns:
+        return ids
+    symbols = var[symbol_key].astype(str).where(var[symbol_key].notna(), ids)
+    duplicated = symbols.duplicated(keep=False)
+    return symbols.where(~duplicated, symbols + ' (' + ids + ')')
+
+
 def get_use_gpu(config):
     use_gpu = bool(config.get('use_gpu', False))
     if isinstance(use_gpu, str):

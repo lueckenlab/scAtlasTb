@@ -25,15 +25,18 @@ def write_empty(output_file, output_tsv):
 
     markers_df = pd.DataFrame(
         columns=[
+            'cluster',
             'gene',
+            'gene_symbol',
             'z-score',
             'logfoldchange',
             'pval',
             'pval_adj',
-            'cluster',
+            'pct_within',
+            'pct_outside',
             '-log10 pvalue',
         ]
-    )
+    ).set_index('cluster')
     markers_df.to_csv(output_tsv, sep='\t')
 
 
@@ -124,11 +127,13 @@ adata = read_anndata(
 )
 logging.info(adata.__str__())
 
-if 'feature_name' in adata.var.columns:
-    adata.var_names = adata.var['feature_name'].astype(str)
+# test on the unique var_names (e.g. gene IDs), so that no gene is dropped and the
+# result matches the var_names of the collected output; symbols are only added to the table
+gene_symbols = adata.var['feature_name'].astype(str) if 'feature_name' in adata.var.columns else None
 
 duplicated = adata.var_names.duplicated(keep='first')
 if duplicated.any():
+    logging.warning(f'Removing {duplicated.sum()} duplicated var_names, keeping the first occurrence...')
     adata = adata[:, ~duplicated].copy()
 
 
@@ -172,15 +177,11 @@ logging.info('Create DEG dataframe...')
 result = adata.uns[key]
 markers_df = []
 for cluster in result['names'].dtype.names:
-    # parse percent results
-    pct_dict = {}
-    for orig, new in dict(pts='pct_within', pts_rest='pct_outside').items():
-        s = result[orig][cluster]
-        # keep unique duplicates where values is max
-        s = s.loc[s.groupby(level=0).idxmax()]
-        pct_dict[new] = s
-    pct_dict_df = pd.DataFrame(pct_dict).reset_index(names='gene')
-    
+    pct_df = pd.DataFrame({
+        'pct_within': result['pts'][cluster],
+        'pct_outside': result['pts_rest'][cluster],
+    }).reset_index(names='gene')
+
     df = pd.DataFrame({
         'gene': result['names'][cluster],
         'z-score': result['scores'][cluster],
@@ -189,9 +190,14 @@ for cluster in result['names'].dtype.names:
         'pval_adj': result['pvals_adj'][cluster], 
         'cluster': cluster
     })
-    df = df.merge(pct_dict_df, on='gene', how='left')
+    df = df.merge(pct_df, on='gene', how='left')
     markers_df.append(df)
 markers_df = pd.concat(markers_df).set_index('cluster')
+markers_df.insert(
+    1,
+    'gene_symbol',
+    markers_df['gene'].map(gene_symbols) if gene_symbols is not None else markers_df['gene'],
+)
 markers_df['-log10 pvalue'] = -np.log10(markers_df['pval'])
 
 markers_df.to_csv(output_tsv, sep='\t')

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import scanpy as sc
 from pathlib import Path
 import matplotlib
@@ -8,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from utils.io import read_anndata
-from utils.misc import dask_compute, ensure_dense
+from utils.misc import dask_compute, ensure_dense, gene_labels
 
 input_file = snakemake.input.zarr
 input_markers = snakemake.input.markers
@@ -49,9 +50,6 @@ adata = read_anndata(
 )
 adata.uns[marker_gene_key] = markers[marker_gene_key]
 
-if 'feature_name' in adata.var.columns:
-    adata.var_names = adata.var['feature_name'].astype(str)
-
 # get rank_genes_groups results
 rank_genes_df = sc.get.rank_genes_groups_df(
     adata,
@@ -74,18 +72,21 @@ splits = np.array_split(groups, n_splits)
 
 # subset to genes for plotting
 genes_to_plot = rank_genes_df.groupby('group').head(n_genes)['names'].unique().tolist()
+labels = gene_labels(adata.var)
 logging.info(f'Load {len(genes_to_plot)} genes to memory...')
 adata = adata[
     adata.obs[group_key].isin(groups),
     adata.var_names.isin(genes_to_plot)
 ]
-
-# Remove duplicates in adata.var_names
-duplicated = adata.var_names.duplicated(keep='first')
-if duplicated.any():
-    adata = adata[:, ~duplicated]
-
 adata = dask_compute(adata.copy(), layers='X')
+
+# show gene symbols instead of IDs, the gene ID is appended to duplicated symbols
+adata.var_names = labels[adata.var_names].values
+result = adata.uns[marker_gene_key]
+result['names'] = pd.DataFrame(result['names']).apply(lambda names: names.map(labels)).to_records(index=False)
+for pts_key in ['pts', 'pts_rest']:
+    if pts_key in result:
+        result[pts_key].index = result[pts_key].index.map(labels)
 if adata.n_vars > 50:
     sc.pp.pca(adata)
 else:

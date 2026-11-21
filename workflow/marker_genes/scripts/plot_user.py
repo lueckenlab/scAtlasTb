@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from utils.io import read_anndata
-from utils.misc import dask_compute, ensure_dense
+from utils.misc import dask_compute, ensure_dense, gene_labels
 
 
 sc.set_figure_params(frameon=False)
@@ -67,9 +67,13 @@ def unique_preserve_order(values):
     return ordered
 
 
-def filter_present_genes(genes, var_names):
-    available = set(var_names)
-    return [gene for gene in genes if gene in available]
+def match_genes(genes, gene_to_labels):
+    """Labels of all genes matching the requested genes, dropping genes that are not found"""
+    return unique_preserve_order(
+        label
+        for gene in genes
+        for label in gene_to_labels.get(gene, [])
+    )
 
 
 def parse_marker_sets(markers):
@@ -134,9 +138,6 @@ adata = read_anndata(
     backed=True,
 )
 
-if 'feature_name' in adata.var.columns:
-    adata.var_names = adata.var['feature_name']
-
 if group_key not in adata.obs.columns:
     raise KeyError(
         f'group_key "{group_key}" is not present in adata.obs. '
@@ -145,11 +146,22 @@ if group_key not in adata.obs.columns:
 
 gene_sets, genes_to_plot = parse_marker_sets(markers)
 
+# match requested genes by gene symbol (feature_name) or var_names, a symbol can match multiple genes
+symbols = adata.var['feature_name'].astype(str) if 'feature_name' in adata.var.columns else adata.var_names.to_series()
+gene_mask = symbols.isin(genes_to_plot).values | adata.var_names.isin(genes_to_plot)
+# show gene symbols instead of IDs, the gene ID is appended to duplicated symbols
+labels = gene_labels(adata.var)[gene_mask]
+
 # subset to genes for plotting
 logging.info(f'{len(genes_to_plot)} genes requested...')
-gene_mask = adata.var_names.isin(genes_to_plot)
 logging.info(f'{gene_mask.sum()} genes found overlapping...')
 adata = adata[:, gene_mask].copy()
+
+gene_to_labels = {}
+for gene_id, symbol, label in zip(adata.var_names, symbols[gene_mask], labels):
+    for gene in {gene_id, symbol}:
+        gene_to_labels.setdefault(gene, []).append(label)
+adata.var_names = labels.values
 
 logging.info('Load genes to memory...')
 adata = dask_compute(adata)
@@ -172,7 +184,7 @@ for set_name, gene_set in gene_sets.items():
         flush=True
     )
     gene_set = {
-        k: filter_present_genes(v, adata.var_names)
+        k: match_genes(v, gene_to_labels)
         for k, v in gene_set.items()
     }
     

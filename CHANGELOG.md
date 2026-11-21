@@ -16,6 +16,7 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 
 - **21.11.2026** Marker genes: `plot.group_order` and matrix plots for user marker genes, configurable `min_cells`/`min_groups_size` and `fail_on_empty` ([#395](https://github.com/lueckenlab/scAtlasTb/pull/395))
   - **Breaking:** `rank_genes_groups` fails by default when `min_cells` or `min_groups_size` filter out all cells. Set `fail_on_empty: false` to write an empty result instead.
+  - **Breaking:** Marker genes are computed on `var_names` instead of `feature_name`, so genes with duplicated symbols are no longer dropped. Result names in `.uns` and the `gene` column of the marker table are `var_names`; symbols are in the new `gene_symbol` column.
 - **13.11.2026** Utils: operator queries in `WildcardParameters`, NaN-safe batch filter, simpler sparse dask reads ([#394](https://github.com/lueckenlab/scAtlasTb/pull/394))
   - Wildcard filtering (`subset_by_query`) accepts operator dicts: `eq`, `ne`, `in`, `notin`.
   - `_filter_batch` ignores NaN batches and returns an all-`False` mask when no batch is left.
