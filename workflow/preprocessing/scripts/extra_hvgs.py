@@ -96,10 +96,6 @@ overwrite_args = snakemake.params.get('overwrite_args', {})
 union_over = extra_hvg_args.get('union_over')
 extra_genes = extra_hvg_args.get('extra_genes', [])
 remove_genes = extra_hvg_args.get('remove_genes', [])
-# min_cells: minimum cells per batch (globally, or within each union_over group)
-# union_min_cells: minimum cells per union_over group
-min_cells = extra_hvg_args.pop('min_cells', 50)  # batch-aware HVG fails for batches of ~10 cells or fewer
-union_min_cells = extra_hvg_args.pop('union_min_cells', min_cells)
 
 logging.info(f'Extra HVG args:\n{pformat(extra_hvg_args)}')
 logging.info(f'Overwrite args:\n{pformat(overwrite_args)}')
@@ -116,13 +112,23 @@ if not args:
     args = {}
 elif isinstance(args, dict):
     args.pop('subset', None) # don't support subsetting
-if isinstance(overwrite_args, dict):
-    args |= overwrite_args
-    for key in sorted(overwrite_args.keys()):
-        hvg_column_name += f'-{key}={overwrite_args[key]}'
+    # highly_variable_genes.min_cells only applies to highly_variable_genes.py
+    args.pop('min_cells', None)
+if not isinstance(overwrite_args, dict):
+    overwrite_args = {}
+args |= overwrite_args
+for key in sorted(overwrite_args.keys()):
+    hvg_column_name += f'-{key}={overwrite_args[key]}'
 
 # drop options only understood by highly_variable_genes.py, not by Scanpy
 args.pop('large_batch_threshold', None)
+
+# min_cells comes only from overwrite_args (not a Scanpy argument, so pop it)
+# min_cells: minimum cells per batch (globally, or within each union_over group)
+# union_min_cells: minimum cells per union_over group
+min_cells = args.pop('min_cells', 50)  # batch-aware HVG fails for batches of ~10 cells or fewer
+union_min_cells = extra_hvg_args.pop('union_min_cells', min_cells)
+logging.info(f'min_cells={min_cells}, union_min_cells={union_min_cells}')
 
 # resolve after overrides so filtering uses the same batch key as Scanpy
 batch_key = args.get('batch_key')

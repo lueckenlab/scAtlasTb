@@ -51,11 +51,14 @@ DATASETS:
       highly_variable_genes:
         n_top_genes: 2000
         batch_key: batch
+        min_cells: 50          # minimum cells per batch (highly_variable_genes only)
       extra_hvgs:
         union_over: [lineage]
         extra_genes: [CCR7, PTPRC]
-        min_cells: 50          # minimum cells per batch, counted within each lineage
         union_min_cells: 500   # minimum cells per lineage (default: min_cells)
+        overwrite_args:        # highly_variable_genes settings that differ for extra_hvgs
+          batch_key: donor
+          min_cells: 20        # minimum cells per donor, counted within each lineage
       pca:
         n_comps: 50
       neighbors:
@@ -81,9 +84,11 @@ DATASETS:
 | Key | Applies to | Default |
 |---|---|---|
 | `filter.min_cells` | Genes: minimum number of cells a gene must be expressed in to be considered for HVG selection (the feature space is not reduced) | `max(10, min(200, ceil(0.001 * n_obs)))`, unless `filter` sets `min_cells` or `min_counts` |
-| `highly_variable_genes.min_cells` | Batches of `batch_key`: cells in smaller batches, or with a missing batch, are excluded from HVG selection | `50` |
-| `extra_hvgs.min_cells` | Batches of the effective `batch_key` (after `overwrite_args`). With `union_over`, batches are counted within each group, so a batch that is small in one group is excluded only from that group | `50` |
-| `extra_hvgs.union_min_cells` | `union_over` groups: groups with fewer cells (after batch filtering) are skipped; if none remain, HVGs are computed on all cells | `extra_hvgs.min_cells` |
+| `highly_variable_genes.min_cells` | Batches of `batch_key`: cells in smaller batches, or with a missing batch, are excluded from HVG selection. Not used by `extra_hvgs` | `50` |
+| `extra_hvgs.overwrite_args.min_cells` | Batches of the effective `batch_key` in `extra_hvgs`. With `union_over`, batches are counted within each group, so a batch that is small in one group is excluded only from that group | `50` |
+| `extra_hvgs.union_min_cells` | `union_over` groups: groups with fewer cells (after batch filtering) are skipped; if none remain, HVGs are computed on all cells | the `min_cells` used by `extra_hvgs` |
+
+Unlike `batch_key`, `min_cells` is not inherited from `highly_variable_genes`: `extra_hvgs` only uses `extra_hvgs.overwrite_args.min_cells`. `min_cells` can't be swept as a list, since it isn't part of the output file name.
 
 Batch filtering exists because batch-aware HVG selection fails on very small batches: `cell_ranger` and `seurat_v3` raise errors (or, for `seurat_v3` with a single cell, crash the process) when a batch has only a handful of cells.
 
