@@ -13,6 +13,11 @@ from utils.accessors import subset_hvg
 from utils.assertions import check_empty
 from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 
+def clear_marker_gene_results(adata, keep_key=None):
+    for existing_key in list(adata.uns):
+        if existing_key.startswith('marker_genes_group=') and existing_key != keep_key:
+            del adata.uns[existing_key]
+
 # if USE_GPU:
 #     rank_gene_func = sc.tl.rank_genes_groups_logreg
 # else:
@@ -20,6 +25,8 @@ from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
 
 def write_empty(output_file, output_tsv):
     adata = read_anndata(input_file, dask=True, backed=True)
+    clear_marker_gene_results(adata)
+    adata.uns[key] = {}
     write_zarr_linked(
         adata,
         in_dir=input_file,
@@ -87,7 +94,7 @@ def filter_groups(group_obs):
     unit = f'pseudobulks (samples in "{sample_key}")' if pseudobulk else 'cells'
     write_empty_output = check_empty(
         n_input=n_obs,
-        n_remaining=obs[group_key].isin(groups).sum(),
+        n_remaining=group_obs[group_key].isin(groups).sum(),
         fail_on_empty=fail_on_empty,
         reason=(
             f'no group in "{group_key}" has at least min_groups_size={min_groups_size} {unit}. '
@@ -173,6 +180,7 @@ if input_file.endswith('.h5ad'):
     new_uns = adata.uns[key]
     adata = read_anndata(input_file, dask=True, backed=True)
     adata.uns[key] = new_uns
+clear_marker_gene_results(adata, keep_key=key)
 write_zarr_linked(
     adata,
     in_dir=input_file,
