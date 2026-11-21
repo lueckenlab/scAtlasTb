@@ -253,9 +253,9 @@ obs colors: keep columns with > 1 unique value; categorical/string columns: 'NaN
 gene colors: remaining entries matched to var_names (exact, else substring/regex), sorted, chunked by plot_gene_chunk_size (default 12)
 remove embedding outliers (UMAP only, outlier_factor=100: cells with |max| or |min| ≥ 100 × mean)
 if n_cells > 1e6: plot a random 70 % of cells
-point size ← clip(200 000 / n_obs, min 0.5 or 1, max 200)
-for each color (parallel threads): scanpy.pl.embedding(basis, color, palette) → <color>.png
-for each gene chunk: scanpy.pl.embedding(color=genes, ncols=4) → genes_group=<i>.png
+point size ← size if configured, else max(200 000 / n_obs, 0.5 if n_obs > 500 000 else 1); at most 200
+for each color (parallel threads): scanpy.pl.embedding(basis, color, palette) → <color>.svg
+for each gene chunk: scanpy.pl.embedding(color=genes, ncols=4) → genes_group=<i>.svg
 ```
 
 Palettes: > 102 categories `turbo` (legend removed), > 20 categories `godsnot_102`, numeric `coolwarm` if negative values else `plasma`. Categorical legends show group sizes; for columns in `plot_centroids` (≤ 102 categories, UMAP only) category numbers are drawn at the per-category median coordinates and prefixed in the legend. Figure titles list the wildcards and the number of cells.

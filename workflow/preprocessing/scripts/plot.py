@@ -136,13 +136,12 @@ if adata.is_view:
     logging.info('Convert view to copy...')
     adata = adata.copy()
 
-# set minimum point size
-min_size = 1 # if adata.n_obs > 500_000 else 1
+# point size: by default scaled to the number of cells (smaller points for
+# >500k cells reduce overplotting); a configured size is used as given
+min_size = 0.5 if adata.n_obs > 500_000 else 1
 default_size = max(min_size, 200_000 / adata.n_obs)
-size = params.get('size', default_size)
-if size is None:
-    size = default_size
-params['size'] = min(200, max(default_size, size))
+size = params.get('size')
+params['size'] = min(200, default_size if size is None else size)
 
 
 def plot_centroids_on_embedding(ax, adata, color, basis, legend, category_numbers, legend_fontsize=10):
