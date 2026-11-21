@@ -36,6 +36,7 @@ adata = read_anndata(
 clean_categorical_column(adata, wildcards.batch)
 
 # subset features
+all_var_names = adata.var_names.copy()
 adata, _ = subset_hvg(adata, var_column='integration_features')
 
 # run method
@@ -57,4 +58,6 @@ write_zarr_linked(
     input_file,
     output_file,
     files_to_keep=['X', 'var', 'uns'],
+    # subset linked feature slots (e.g. layers) to the integration features
+    subset_mask=(None, all_var_names.isin(adata.var_names)),
 )

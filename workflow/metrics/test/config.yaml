@@ -38,6 +38,7 @@ defaults:
     - test_integration
     - scib_metrics
     - morans_i
+    - full_var_mask
 
 
 DATASETS:
@@ -189,6 +190,27 @@ DATASETS:
         - pcr
         - pcr_genes
 
+
+  # full-output methods integrated on a feature subset (var_mask), compared against the unintegrated PCA
+  full_var_mask:
+    input:
+      metrics:
+        combat_full: test/input/integration/postprocess/dataset~test/file_id~pbmc68k/batch~batch/var_mask~highly_variable/method~combat--hyperparams~f2cc64f1c1--label~None--output_type~full.zarr
+        scanorama_full: test/input/integration/postprocess/dataset~test/file_id~pbmc68k/batch~batch/var_mask~highly_variable/method~scanorama--hyperparams~a90b47ca49--label~None--output_type~full.zarr
+    metrics:
+      unintegrated: layers/normcounts
+      var_mask: highly_variable
+      label: bulk_labels
+      batch: batch
+      metrics:
+        - pcr_comparison
+        - pcr_random
+        - cell_cycle
+        - asw_batch
+        - morans_i_genes
+        - pcr_genes
+      gene_sets:
+        ifn_signature, monocytes_cd14
 
 MARKER_GENES:
   ifn_signature: [

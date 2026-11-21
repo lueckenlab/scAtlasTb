@@ -19,7 +19,7 @@ read_anndata(prep_file)
 
 # direct integration outputs
 outputs = glob.glob('test/out/integration/dataset~*/file_id~*/batch~*/var_mask~*/method~*/adata.zarr')
-outputs = glob.glob('test/out/integration/dataset~*/file_id~*/batch~*/var_mask~*/method~*--output_type~*.zarr')
+outputs = glob.glob('test/out/integration/postprocess/dataset~*/file_id~*/batch~*/var_mask~*/method~*--output_type~*.zarr')
 if len(outputs) == 0:
     warnings.warn('No integration outputs found')
 
@@ -73,6 +73,13 @@ for file in outputs:
             assert 'X' in z, f'No X for output type full\nfile: {file}'
             X = read_elem(z['X'])
             assert X is not None
+            # linked layers must match the (possibly feature-subsetted) var
+            adata = read_anndata(file, X='X', var='var', layers='layers', dask=True, backed=True)
+            assert X.shape[1] == adata.n_vars, \
+                f'X has {X.shape[1]} features, but var has {adata.n_vars}\nfile: {file}'
+            for key, layer in adata.layers.items():
+                assert layer.shape == adata.shape, \
+                    f'layer "{key}" has shape {layer.shape}, expected {adata.shape}\nfile: {file}'
             # assert 'corrected_counts' in layers
             # check that counts are different from input
             # if uns['integration']['method'] != 'unintegrated':
