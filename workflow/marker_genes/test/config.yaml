@@ -17,6 +17,7 @@ DATASETS:
         reference: rest
         n_genes: 100
         method: wilcoxon
+        min_groups_size: 2
       plot:
         n_genes: 20
         min_logfoldchange: 3
@@ -34,6 +35,12 @@ DATASETS:
       plot:
         n_genes: 10
         n_groups_per_split : 5
+        group_order:
+          bulk_labels:
+            - B_cells
+            - T_cells
+            - Myeloid
+            - Other
       layer: layers/counts
 
 MARKER_GENES:

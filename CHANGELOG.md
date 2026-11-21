@@ -3,6 +3,7 @@
 <!--
 Format:
 - One bullet per PR under the year heading, newest first: `**DD.MM.YYYY** Short summary ([#PR](link))`.
+  The date is the day the PR was merged.
 - Add indented sub-bullets only when needed (e.g. notable details, `**Breaking:**` notes).
 - Larger, manually written entries on breaking changes get their own `###` section below the year's list
   (with bold labels such as `**Breaking changes**` to structure it), and the list bullet links to that section.
@@ -13,6 +14,8 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 
 ## 2026
 
+- **21.11.2026** Marker genes: `plot.group_order` and matrix plots for user marker genes, configurable `min_cells`/`min_groups_size` and `fail_on_empty` ([#395](https://github.com/lueckenlab/scAtlasTb/pull/395))
+  - **Breaking:** `rank_genes_groups` fails by default when `min_cells` or `min_groups_size` filter out all cells. Set `fail_on_empty: false` to write an empty result instead.
 - **13.11.2026** Utils: operator queries in `WildcardParameters`, NaN-safe batch filter, simpler sparse dask reads ([#394](https://github.com/lueckenlab/scAtlasTb/pull/394))
   - Wildcard filtering (`subset_by_query`) accepts operator dicts: `eq`, `ne`, `in`, `notin`.
   - `_filter_batch` ignores NaN batches and returns an all-`False` mask when no batch is left.

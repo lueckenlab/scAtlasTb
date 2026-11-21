@@ -1,6 +1,8 @@
 import numpy as np
 import scanpy as sc
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')  # only save plots to file, never open windows
 from matplotlib import pyplot as plt
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -20,9 +22,11 @@ wildcards = snakemake.wildcards
 group_key = wildcards.group
 file_id = wildcards.file_id
 title = f'Marker genes for file_id={file_id} group={group_key}'
+marker_gene_key = f'marker_genes_group={group_key}'
 
 args = snakemake.params.get('args', {})
-marker_gene_key = f'marker_genes_group={group_key}'
+group_order = args.pop('group_order', None) # TODO: unify group_order handling across all plotting rules
+layer = args.pop('layer', snakemake.params.get('layer', 'X'))
 args['key'] = marker_gene_key
 n_genes = args.get('n_genes', 10)
 n_groups_per_split = args.pop('n_groups_per_split', int(100 / n_genes))
@@ -30,7 +34,7 @@ n_groups_per_split = args.pop('n_groups_per_split', int(100 / n_genes))
 logging.info(f'Reading {input_file}...')
 adata = read_anndata(
     input_file,
-    X='X',
+    X=layer,
     obs='obs',
     var='var',
     uns='uns',
@@ -39,7 +43,12 @@ adata = read_anndata(
 )
 
 if 'feature_name' in adata.var.columns:
-    adata.var_names = adata.var['feature_name']
+    adata.var_names = adata.var['feature_name'].astype(str)
+
+if adata.n_obs == 0 or marker_gene_key not in adata.uns or not adata.uns[marker_gene_key]:
+    logging.info(f'No marker genes found for group {group_key}, writing empty output')
+    plt.savefig(output_rankplot)
+    exit(0)
 
 # get rank_genes_groups results
 rank_genes_df = sc.get.rank_genes_groups_df(
@@ -48,6 +57,13 @@ rank_genes_df = sc.get.rank_genes_groups_df(
     group=None,
     log2fc_min=args.get('min_logfoldchange'),
 )
+
+if 'group' not in rank_genes_df.columns or rank_genes_df['group'].nunique() < 2:
+    logging.info(f'Fewer than 2 groups found for group {group_key}, writing empty output')
+    plt.savefig(output_rankplot)
+    exit(0)
+
+rank_genes_df = rank_genes_df.drop_duplicates(subset=['group', 'names'])
 
 # partition groups to make plots visualisable
 groups = rank_genes_df['group'].unique().tolist()
@@ -60,15 +76,23 @@ logging.info(f'Load {len(genes_to_plot)} genes to memory...')
 adata = adata[
     adata.obs[group_key].isin(groups),
     adata.var_names.isin(genes_to_plot)
-].copy()
-adata.X = adata.X.map_blocks(lambda x: x.toarray(), dtype=adata.X.dtype)
-sc.pp.pca(adata)
-adata = dask_compute(adata, layers=['X', 'X_pca'])
+]
+
+# Remove duplicates in adata.var_names
+duplicated = adata.var_names.duplicated(keep='first')
+if duplicated.any():
+    adata = adata[:, ~duplicated]
+
+adata = dask_compute(adata.copy(), layers='X')
+if adata.n_vars > 50:
+    sc.pp.pca(adata)
+else:
+    ensure_dense(adata, layers='X')
 logging.info(adata.__str__())
 
 logging.info('Rankplot...')
 try:
-    sc.pl.rank_genes_groups(adata, **args)
+    sc.pl.rank_genes_groups(adata, **(args | {'show': False}))
     plt.suptitle(title)
     plt.savefig(output_rankplot, dpi=100, bbox_inches='tight')
 except Exception as e:
@@ -84,7 +108,7 @@ for i, partition_groups in enumerate(splits):
         groups=partition_groups,
         return_fig=True,
     )
-    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5).show()
+    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5)
     dp.savefig(
         f'{output_dotplot}/split={i}_expression.png',
         dpi=100,
@@ -102,7 +126,7 @@ for i, partition_groups in enumerate(splits):
         colorbar_title='log fold change',
         return_fig=True,
     )
-    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5).show()
+    dp.add_totals().style(dot_edge_color='black', dot_edge_lw=0.5)
     dp.savefig(
         f'{output_dotplot}/split={i}_logfoldchanges.png',
         dpi=100,
@@ -116,7 +140,7 @@ for i, partition_groups in enumerate(splits):
         groups=partition_groups,
         return_fig=True,
     )
-    mp.add_totals().style(edge_color='black').show()
+    mp.add_totals().style(edge_color='black')
     mp.savefig(
         f'{output_matrixplot}/split={i}_expression.png',
         dpi=100,
@@ -134,7 +158,7 @@ for i, partition_groups in enumerate(splits):
         colorbar_title='log fold change',
         return_fig=True,
     )
-    mp.add_totals().style(edge_color='black').show()
+    mp.add_totals().style(edge_color='black')
     mp.savefig(
         f'{output_matrixplot}/split={i}_logfoldchanges.png',
         dpi=100,
