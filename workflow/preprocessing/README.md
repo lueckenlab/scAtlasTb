@@ -54,6 +54,8 @@ DATASETS:
       extra_hvgs:
         union_over: [lineage]
         extra_genes: [CCR7, PTPRC]
+        min_cells: 200         # minimum cells per batch, counted within each lineage
+        union_min_cells: 500   # minimum cells per lineage (default: min_cells)
       pca:
         n_comps: 50
       neighbors:
@@ -71,6 +73,19 @@ DATASETS:
         - neighbors
         - umap
 ```
+
+## Cell and gene thresholds
+
+`min_cells` means different things depending on the step:
+
+| Key | Applies to | Default |
+|---|---|---|
+| `filter.min_cells` | Genes: minimum number of cells a gene must be expressed in to be considered for HVG selection (the feature space is not reduced) | `max(10, min(200, ceil(0.001 * n_obs)))`, unless `filter` sets `min_cells` or `min_counts` |
+| `highly_variable_genes.min_cells` | Batches of `batch_key`: cells in smaller batches, or with a missing batch, are excluded from HVG selection | `max(n_bins, 200)` |
+| `extra_hvgs.min_cells` | Batches of the effective `batch_key` (after `overwrite_args`). With `union_over`, batches are counted within each group, so a batch that is small in one group is excluded only from that group | `max(n_bins, 200)` |
+| `extra_hvgs.union_min_cells` | `union_over` groups: groups with fewer cells (after batch filtering) are skipped; if none remain, HVGs are computed on all cells | `extra_hvgs.min_cells` |
+
+Batch filtering exists because batch-aware HVG selection fails on very small batches: `cell_ranger` and `seurat_v3` raise errors (or, for `seurat_v3` with a single cell, crash the process) when a batch has only a handful of cells.
 
 All step-specific keys (`normalize`, `filter`, `highly_variable_genes`, `extra_hvgs`, `pca`, `neighbors`, `umap`) as well as the global knobs `dask`, `n_threads` and `resources` can be set under `defaults: preprocessing:` and overridden per dataset.
 The per-step behaviour and all parameters are described in the *Functional description* section of the module documentation page.
