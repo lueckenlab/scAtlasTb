@@ -59,9 +59,14 @@ adata = read_anndata(
 clean_categorical_column(adata, batch_key)
 
 # subset features
-adata, _ = subset_hvg(adata, var_column='integration_features')
+# keep the feature mask so linked full-feature slots (layers, raw, varm) are
+# subset to match the written X and var
+var_mask = adata.var['integration_features'].to_numpy(dtype=bool)
+adata, subsetted = subset_hvg(adata, var_column='integration_features')
 var = adata.var.copy()
 
+obs_names = adata.obs_names.copy()
+var_names = adata.var_names.copy()
 batch_categories = adata.obs[batch_key].unique().tolist()
 adatas = [
     adata[adata.obs[batch_key] == batch].copy()
@@ -81,6 +86,12 @@ adata = merge_adata(
     keys=batch_categories,
     index_unique=None
 )
+# restore the input cell order: cells are concatenated by batch, but .obs is
+# linked from the input file, so rows must match its order
+adata = adata[obs_names].copy()
+# restore the input gene order: scanorama returns its genes sorted alphabetically,
+# but layers/raw/varm are linked from the input, so columns must match its order
+adata = adata[:, var_names].copy()
 # anndata.concat drops var columns, restore them
 adata.var = var.loc[adata.var_names]
 
@@ -103,4 +114,5 @@ write_zarr_linked(
     output_file,
     # files_to_keep=['obsm', 'uns'],
     files_to_keep=['X', 'obsm', 'var', 'uns'],
+    subset_mask=(None, var_mask) if subsetted else None,
 )
