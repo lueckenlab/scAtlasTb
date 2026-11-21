@@ -5,6 +5,22 @@ import hashlib
 import warnings
 
 
+def drop_duplicated_var_names(adata):
+    """
+    Keep only the first occurrence of each var_name, since results and plots refer to genes by name.
+
+    :param adata: AnnData object
+    :return: AnnData object with unique var_names
+    """
+    import logging
+
+    duplicated = adata.var_names.duplicated(keep='first')
+    if duplicated.any():
+        logging.warning(f'Removing {duplicated.sum()} duplicated var_names, keeping the first occurrence...')
+        adata = adata[:, ~duplicated].copy()
+    return adata
+
+
 def gene_labels(var: pd.DataFrame, symbol_key: str = 'feature_name') -> pd.Series:
     """
     Unique, readable gene labels for plots, indexed by var_names.

@@ -13,6 +13,7 @@ from utils.io import read_anndata, write_zarr
 from utils.accessors import subset_hvg
 from utils.assertions import check_empty
 from utils.processing import filter_genes, get_pseudobulks #, sc, USE_GPU
+from utils.misc import drop_duplicated_var_names
 
 # if USE_GPU:
 #     rank_gene_func = sc.tl.rank_genes_groups_logreg
@@ -127,14 +128,10 @@ adata = read_anndata(
 )
 logging.info(adata.__str__())
 
-# test on the unique var_names (e.g. gene IDs), so that no gene is dropped and the
-# result matches the var_names of the collected output; symbols are only added to the table
+# test on var_names (e.g. gene IDs) instead of symbols, so that genes with duplicated symbols are kept
+# and the result matches the var_names of the collected output; symbols are only added to the table
+adata = drop_duplicated_var_names(adata)
 gene_symbols = adata.var['feature_name'].astype(str) if 'feature_name' in adata.var.columns else None
-
-duplicated = adata.var_names.duplicated(keep='first')
-if duplicated.any():
-    logging.warning(f'Removing {duplicated.sum()} duplicated var_names, keeping the first occurrence...')
-    adata = adata[:, ~duplicated].copy()
 
 
 # logging.info('Subset highly variable genes...')

@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from utils.io import read_anndata
-from utils.misc import dask_compute, ensure_dense, gene_labels
+from utils.misc import dask_compute, drop_duplicated_var_names, ensure_dense, gene_labels
 
 input_file = snakemake.input.zarr
 input_markers = snakemake.input.markers
@@ -48,6 +48,7 @@ adata = read_anndata(
     dask=True,
     backed=True,
 )
+adata = drop_duplicated_var_names(adata)
 adata.uns[marker_gene_key] = markers[marker_gene_key]
 
 # get rank_genes_groups results

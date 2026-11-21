@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from utils.io import read_anndata
-from utils.misc import dask_compute, ensure_dense, gene_labels
+from utils.misc import dask_compute, drop_duplicated_var_names, ensure_dense, gene_labels
 
 
 sc.set_figure_params(frameon=False)
@@ -137,6 +137,7 @@ adata = read_anndata(
     dask=True,
     backed=True,
 )
+adata = drop_duplicated_var_names(adata)
 
 if group_key not in adata.obs.columns:
     raise KeyError(

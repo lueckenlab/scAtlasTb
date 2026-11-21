@@ -110,7 +110,7 @@ plot:
 * **File formats:** `.h5ad` or `.zarr` (AnnData), configured under `input: marker_genes:` (see [Architecture](https://scatlastb.readthedocs.io/en/latest/principles/architecture.html)).
 * **Expression matrix:** the slot named by `layer` (default `X`; e.g. `layers/counts`). The matrix is used as stored — no normalisation is applied, so normalised data should be selected for cell-level tests, raw counts for pseudobulk tests.
 * **`.obs`:** one grouping column per entry of `groups` (the parameter space is exploded so each column is its own `group` wildcard); optionally the `sample` column.
-* **`.var`:** marker genes are computed on `var_names` (e.g. gene IDs), so the results match the genes of the input. If a `feature_name` column exists, it is used as gene symbol in the marker table, in plot labels and to match user marker genes. Plots label genes by symbol and append the gene ID to symbols that occur more than once, e.g. `CD3D (ENSG00000167286)`.
+* **`.var`:** marker genes are computed on `var_names` (e.g. gene IDs), so the results match the genes of the input. If a `feature_name` column exists, it is used as gene symbol in the marker table, in plot labels and to match user marker genes. Plots label genes by symbol and append the gene ID to symbols that occur more than once, e.g. `CD3D (ENSG00000167286)`. If `var_names` themselves are duplicated, only the first occurrence is used for testing and plotting, and a warning is logged.
 * **Marker gene sets:** resolved by `utils/marker_genes.py::get_marker_gene_set` from config `marker_genes` (string of comma-separated keys into top-level `MARKER_GENES`, or a dictionary).
 
 ### Processing steps
