@@ -61,6 +61,7 @@ clean_categorical_column(adata, batch_key)
 # subset features
 adata, _ = subset_hvg(adata, var_column='integration_features')
 var = adata.var.copy()
+obs_names = adata.obs_names.copy()
 
 batch_categories = adata.obs[batch_key].unique().tolist()
 adatas = [
@@ -81,6 +82,9 @@ adata = merge_adata(
     keys=batch_categories,
     index_unique=None
 )
+# cells are concatenated batch by batch, restore the input order so that X and obsm
+# line up with obs, which write_zarr_linked links from the input file
+adata = adata[obs_names].copy()
 # anndata.concat drops var columns, restore them
 adata.var = var.loc[adata.var_names]
 
