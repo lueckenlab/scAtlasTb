@@ -101,7 +101,8 @@ if not run_hvg:
     var['highly_variable'] = True
 else:
     batch_key = hvg_args.get('batch_key')
-    min_cells = hvg_args.pop('min_cells', max(hvg_args.get('n_bins', 20), 200))
+    # batch-aware HVG fails for batches of ~10 cells or fewer (cell_ranger, seurat_v3)
+    min_cells = hvg_args.pop('min_cells', 50)
     large_batch_threshold = int(hvg_args.pop('large_batch_threshold', 20))
     persist_dask = hvg_args.pop('persist_dask', dask)
 

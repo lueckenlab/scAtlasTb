@@ -98,7 +98,7 @@ extra_genes = extra_hvg_args.get('extra_genes', [])
 remove_genes = extra_hvg_args.get('remove_genes', [])
 # min_cells: minimum cells per batch (globally, or within each union_over group)
 # union_min_cells: minimum cells per union_over group
-min_cells = extra_hvg_args.pop('min_cells', max(args.get('n_bins', 20), 200))
+min_cells = extra_hvg_args.pop('min_cells', 50)  # batch-aware HVG fails for batches of ~10 cells or fewer
 union_min_cells = extra_hvg_args.pop('union_min_cells', min_cells)
 
 logging.info(f'Extra HVG args:\n{pformat(extra_hvg_args)}')

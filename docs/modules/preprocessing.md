@@ -113,7 +113,7 @@ column ← 'highly_variable' + ''.join(f'-{k}={v}' for k in sorted(args))
 X ← layers/counts if flavor == 'seurat_v3' else layers/normcounts
 if args is False:  var['highly_variable'] ← True        # no HVG selection
 else:
-    min_cells ← args.pop('min_cells', max(args.n_bins or 20, 200))
+    min_cells ← args.pop('min_cells', 50)
     drop batches of batch_key with < min_cells cells (utils.accessors._filter_batch)
     subset genes to var['nonzero_genes']
     sort cells by batch_key (contiguous batches); persist dask array (chunks 200 000 × all genes)
@@ -143,7 +143,7 @@ Additional gene mask, independent of the PCA input.
 ```text
 args ← highly_variable_genes config (drop subset) | overwrite_args
 column ← 'extra_hvgs' + ''.join(f'-{k}={v}' for k in sorted(overwrite_args))
-min_cells ← extra_hvgs.min_cells or max(args.n_bins or 20, 200)      # per batch
+min_cells ← extra_hvgs.min_cells or 50                      # per batch
 union_min_cells ← extra_hvgs.union_min_cells or min_cells            # per union_over group
 read layers/counts (seurat_v3, seurat_v3_paper) or layers/normcounts
 remove genes matching remove_genes (subset before HVG selection)
@@ -171,7 +171,7 @@ DATASETS:
         union_over: [lineage]
         extra_genes: [CCR7, PTPRC]
         remove_genes: [MALAT1]
-        min_cells: 200         # minimum cells per batch (within each group with union_over)
+        min_cells: 50          # minimum cells per batch (within each group with union_over)
         union_min_cells: 500   # minimum cells per union_over group (default: min_cells)
         overwrite_args:
           n_top_genes: 3000
