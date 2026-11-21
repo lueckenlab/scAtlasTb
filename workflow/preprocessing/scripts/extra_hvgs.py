@@ -122,8 +122,7 @@ if isinstance(overwrite_args, dict):
         hvg_column_name += f'-{key}={overwrite_args[key]}'
 
 # drop options only understood by highly_variable_genes.py, not by Scanpy
-for key in ('large_batch_threshold', 'persist_dask'):
-    args.pop(key, None)
+args.pop('large_batch_threshold', None)
 
 # resolve after overrides so filtering uses the same batch key as Scanpy
 batch_key = args.get('batch_key')

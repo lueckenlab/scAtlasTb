@@ -104,7 +104,6 @@ else:
     # batch-aware HVG fails for batches of ~10 cells or fewer (cell_ranger, seurat_v3)
     min_cells = hvg_args.pop('min_cells', 50)
     large_batch_threshold = int(hvg_args.pop('large_batch_threshold', 20))
-    persist_dask = hvg_args.pop('persist_dask', dask)
 
     # filter genes and cells that would break HVG function
     t0 = time.perf_counter()
@@ -134,11 +133,7 @@ else:
         dask = False
     
     if dask:
-        logging.info('Dask HVG path: persist_dask=%s', persist_dask)
-        t0 = time.perf_counter()
-        if persist_dask:
-            adata.X = adata.X.persist()
-        _log_timing(t0, 'Dask preparation')
+        logging.info('Keep X as a lazy dask array for HVG computation...')
     else:
         logging.info('Compute X before HVG computation...')
         t0 = time.perf_counter()

@@ -116,7 +116,9 @@ else:
     min_cells ← args.pop('min_cells', 50)
     drop batches of batch_key with < min_cells cells (utils.accessors._filter_batch)
     subset genes to var['nonzero_genes']
-    sort cells by batch_key (contiguous batches); persist dask array (chunks 200 000 × all genes)
+    large_batch_threshold ← args.pop('large_batch_threshold', 20)
+    if not dask or n_batches ≥ large_batch_threshold: load X into memory
+    else: keep X as a lazy dask array
     scanpy.pp.highly_variable_genes(adata, **args)
     map highly_variable, means, dispersions, dispersions_norm,
         highly_variable_nbatches, highly_variable_intersection back to full var
