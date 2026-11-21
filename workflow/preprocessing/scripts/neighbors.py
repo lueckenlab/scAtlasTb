@@ -30,10 +30,15 @@ if params == False:
     adata.obsp = read_anndata(input_file, obs='obs', obsp='obsp').obsp
     assert_neighbors(adata, check_params=False)
     adata.uns['neighbors']['params'] = adata.uns['neighbors'].get('params', {})
+    # keep the representation the graph was built on (e.g. X_emb, X_pca), so that
+    # downstream steps like UMAP don't fall back to the full feature matrix
+    use_rep = adata.uns['neighbors']['params'].get('use_rep')
+    if use_rep is None:
+        use_rep = 'X_pca' if 'X_pca' in adata.obsm else 'X'
     adata.uns['neighbors']['params'] |= dict(
         connectivities_key='connectivities',
         distances_key='distances',
-        use_rep='X_pca' if 'X_pca' in adata.obsm else 'X',
+        use_rep=use_rep,
     )
     assert_neighbors(adata)
 else:
