@@ -3,6 +3,7 @@
 <!--
 Format:
 - One bullet per PR under the year heading, newest first: `**DD.MM.YYYY** Short summary ([#PR](link))`.
+  The date is the day the PR was merged.
 - Add indented sub-bullets only when needed (e.g. notable details, `**Breaking:**` notes).
 - Larger, manually written entries on breaking changes get their own `###` section below the year's list
   (with bold labels such as `**Breaking changes**` to structure it), and the list bullet links to that section.
@@ -13,14 +14,8 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 
 ## 2026
 
-- **13.11.2026** Marker genes: group order and matrix plots for user marker genes, configurable thresholds and `fail_on_empty` ([#395](https://github.com/lueckenlab/scAtlasTb/pull/395))
-  - New `plot.group_order` sets the group order in user marker gene plots (list, comma-separated string, file, or a dict per group).
-  - User marker genes are also shown as matrix plots, next to the dot plots.
-  - `min_groups_size` (default 10) and `min_cells` (default 100) can be set under `rank_genes_groups`. They are not passed on to scanpy.
-  - New `fail_on_empty` (default `true`): if `min_cells` or `min_groups_size` filter out all cells, `rank_genes_groups` fails before loading the data. The error says which filter removed everything and where to change it in the module configuration. Set `fail_on_empty: false` to write an empty result instead. An input that is already empty always gives an empty result.
-  - The `plot_user` rule moved to `rules/user_genes.smk`; rule names are unchanged.
-  - Plots are only saved to file and no longer opened in a window.
-  - The module docs page now comes from the module README, including the overview diagram and the functional description.
+- **21.11.2026** Marker genes: `plot.group_order` and matrix plots for user marker genes, configurable `min_cells`/`min_groups_size` and `fail_on_empty` ([#395](https://github.com/lueckenlab/scAtlasTb/pull/395))
+  - **Breaking:** `rank_genes_groups` fails by default when `min_cells` or `min_groups_size` filter out all cells. Set `fail_on_empty: false` to write an empty result instead.
 - **13.11.2026** Utils: operator queries in `WildcardParameters`, NaN-safe batch filter, simpler sparse dask reads ([#394](https://github.com/lueckenlab/scAtlasTb/pull/394))
   - Wildcard filtering (`subset_by_query`) accepts operator dicts: `eq`, `ne`, `in`, `notin`.
   - `_filter_batch` ignores NaN batches and returns an all-`False` mask when no batch is left.
