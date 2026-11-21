@@ -143,15 +143,21 @@ Additional gene mask, independent of the PCA input.
 ```text
 args ← highly_variable_genes config (drop subset) | overwrite_args
 column ← 'extra_hvgs' + ''.join(f'-{k}={v}' for k in sorted(overwrite_args))
-min_cells ← extra_hvgs.min_cells or max(args.n_bins or 20, 200)
-read layers/counts (seurat_v3) or layers/normcounts; filter batches (< min_cells) and nonzero_genes
-sort cells by batch_key
+min_cells ← extra_hvgs.min_cells or max(args.n_bins or 20, 200)      # per batch
+union_min_cells ← extra_hvgs.union_min_cells or min_cells            # per union_over group
+read layers/counts (seurat_v3, seurat_v3_paper) or layers/normcounts
 remove genes matching remove_genes (subset before HVG selection)
 if union_over:
-    group ← '--'.join(obs[union_over]) with 'nan'/'unknown' as missing; drop groups < min_cells
+    group ← '--'.join(obs[union_over]) with 'nan'/'unknown' as missing
+    within each group, drop cells with missing batch_key or in batches < min_cells
+    drop groups < union_min_cells (counted after batch filtering)
+    subset to retained cells and nonzero_genes, sorted by group, then batch_key
     for each group: scanpy.pp.highly_variable_genes(group, **args); column |= group HVGs
     (falls back to all cells if no valid group remains)
-else: scanpy.pp.highly_variable_genes(adata, **args)
+if no union_over (or fallback):
+    drop cells with missing batch_key or in batches < min_cells (across all cells)
+    subset to retained cells and nonzero_genes, sorted by batch_key
+    scanpy.pp.highly_variable_genes(adata, **args)
 map back to full var (False for filtered genes); set column True for matched extra_genes
 ```
 
@@ -165,7 +171,8 @@ DATASETS:
         union_over: [lineage]
         extra_genes: [CCR7, PTPRC]
         remove_genes: [MALAT1]
-        min_cells: 200
+        min_cells: 200         # minimum cells per batch (within each group with union_over)
+        union_min_cells: 500   # minimum cells per union_over group (default: min_cells)
         overwrite_args:
           n_top_genes: 3000
           flavor: seurat_v3
