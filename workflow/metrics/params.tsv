@@ -10,7 +10,6 @@ clisi	bio_conservation	full,embed,knn	knn	False	False	False	False	scib	cpu	1
 isolated_label_asw	bio_conservation	full,embed	embed	False	False	False	False	scib	cpu	1
 isolated_label_f1	bio_conservation	full,embed,knn	knn	False	True	False	False	scib	cpu	1
 nmi	bio_conservation	full,embed,knn	knn	False	True	False	False	scib	cpu	1
-kbet	batch_correction	full,embed,knn	knn	False	False	False	False	scib	cpu	1
 morans_i	bio_conservation	full,embed,knn	knn	False	False	True	False	scanpy	cpu	1
 morans_i_genes	bio_conservation	full,embed,knn	full,knn	False	False	False	True	scanpy	cpu	1
 morans_i_random	batch_correction	full,embed,knn	knn	False	False	False	False	scib	cpu	1
@@ -32,4 +31,3 @@ pcr_y	batch_correction	full,embed	embed	True	False	False	False	scib_metrics	gpu	
 pcr_random	batch_correction	full,embed	embed	True	False	False	False	scib	cpu	10
 pcr	bio_conservation	full,embed	embed	False	False	True	False	scib	cpu	10
 pcr_genes	bio_conservation	full,embed	full,embed,knn	False	False	False	True	scib	cpu	10
-pcr_random_genes	batch_correction	full,embed	knn	True	False	False	False	scib	cpu	10
