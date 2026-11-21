@@ -28,6 +28,7 @@ def ari_leiden_y(adata, output_type, batch_key, label_key, **kwargs):
     import scib_metrics
 
     adata = select_neighbors(adata, output_type)
+    adata = adata[adata.obs[label_key].notna()].copy()
     labels = rename_categories(adata, label_key)
 
     scores = scib_metrics.nmi_ari_cluster_labels_leiden(
@@ -41,6 +42,7 @@ def ari_leiden_y(adata, output_type, batch_key, label_key, **kwargs):
 def ari_kmeans_y(adata, output_type, batch_key, label_key, **kwargs):
     from scib_metrics import nmi_ari_cluster_labels_kmeans
     
+    adata = adata[adata.obs[label_key].notna()].copy()
     labels = rename_categories(adata, label_key)
     adata = select_neighbors(adata, output_type)
 
