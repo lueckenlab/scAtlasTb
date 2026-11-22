@@ -57,7 +57,9 @@ sctk.calculate_qc(
     flags = {
         "mito": r"(?i)^MT-",
         "ribo": r"(?i)^RP[LS]",
-        "hb": r"(?i)^HB[ABDEGMQZ][0-9]?$"
+        # hemoglobin genes, human and mouse (MGI symbols); not HBEGF, HBP1, HBS1L
+        # or the globin pseudogenes (HBBP1, Hba-ps3, Hbb-bh0, ...)
+        "hb": r"(?i)^(?:HB[ABDEGMQZ][0-9]?|Hba-(?:a[12]|x)|Hbb-(?:b[12]|bh[12]|bs|bt|y)|Hbq1[ab])$"
     },
 )
 
