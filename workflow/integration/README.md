@@ -65,6 +65,15 @@ DATASETS:
         scanorama:
           batch_size: 100
 
+        # Seurat v5 RPCA, runs in R: raw_counts are log-normalized on all genes (Seurat's LogNormalize),
+        # then subset to var_mask; see scripts/methods/seurat_rpca.py for all hyperparameters
+        seurat_rpca:
+          dims: 30
+          k_weight: 100  # IntegrateLayers() argument k.weight (underscores stand for dots)
+          reference:  # optional: batches the other batches are integrated onto (a list inside a list)
+            -
+            - [G1, S]
+
         scvi:
           max_epochs: 100
           early_stopping: true
