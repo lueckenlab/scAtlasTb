@@ -8,9 +8,18 @@ def update_neighbors_args(wildcards):
     return args
 
 
+def get_reference_mapped(wildcards):
+    if mcfg.get_from_parameters(wildcards, 'scarches', default={}).get('model') is not None:
+        return rules.scarches.output.zarr
+    elif mcfg.get_from_parameters(wildcards, 'scimilarity', default={}).get('model') is not None:
+        return rules.scimilarity.output.zarr
+    else:
+        raise ValueError(f"No reference mapping method specified for dataset {wildcards.dataset}")
+
+
 use rule neighbors from preprocessing as reference_mapping_neighbors with:
     input:
-        zarr=rules.scarches.output.zarr,
+        zarr=get_reference_mapped,
     output:
         zarr=directory(mcfg.out_dir / 'postprocess' / f'{paramspace.wildcard_pattern}.zarr'),
     params:

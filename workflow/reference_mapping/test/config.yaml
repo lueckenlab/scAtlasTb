@@ -34,3 +34,18 @@ DATASETS:
       umap_colors:
         - batch
         - bulk_labels
+      
+  test_scimilarity:
+    input:
+      reference_mapping:
+        file_1: test/input/pbmc68k.h5ad
+    reference_mapping:
+      scimilarity:
+        model: /hpc/scratch/project.hca_integration/scatlastb/input/scimilarity/model_v1.1
+        layer: layers/counts
+        
+        model_params:
+          gene_overlap_threshold: 700
+      umap_colors:
+        - batch
+        - bulk_labels
