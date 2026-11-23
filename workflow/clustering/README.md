@@ -98,6 +98,12 @@ DATASETS:
 - **`umap_colors`**: List of metadata columns to use for UMAP coloring
   - Example: `[bulk_labels, batch, n_genes]`
 
+- **`plots`**: Settings for the UMAP plots (shared with the preprocessing and integration modules)
+  - `colors`, `plot_centroids`: additional columns to colour by / label at their centroids
+  - `dpi` (default `200`): resolution of the rasterised points in the SVG plots
+  - `max_label_length` (default `10`): longer centroid labels are replaced by numbers
+  - `add_outline` (default `false`): draw an outline around groups of points
+
 ### Performance Options
 
 - **`use_gpu`**: Boolean flag to enable GPU acceleration

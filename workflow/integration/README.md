@@ -129,7 +129,7 @@ The AnnData file in h5ad or zarr requires the following input:
 * `var_mask`: boolean column(s) in `.var` (e.g. `highly_variable`) defining the features used for integration. Each value becomes a separate run. The column must exist in the input file. If not set, all genes are used.
 * `save_subset`: if `true`, the prepared file stores the count matrices physically subset to the integration features instead of linking the full matrices (default: `false`)
 * `seed`, `threads`: random seed passed to the methods (default: 0) and number of CPU threads (default: 1)
-* `umap_colors`, `plots` (`colors`, `plot_centroids`, `plot_gene_chunk_size`): additional `.obs` columns or genes to colour the UMAP plots by (label and batch columns are always plotted)
+* `umap_colors`, `plots` (`colors`, `plot_centroids`, `plot_gene_chunk_size`, `dpi`, `max_label_length`, `add_outline`): additional `.obs` columns or genes to colour the UMAP plots by (label and batch columns are always plotted)
 
 ## Output
 

@@ -24,6 +24,9 @@ use rule plots from preprocessing as preprocessing_plot_pca with:
         color=lambda w: mcfg.get_from_parameters(w, 'colors', default=[]),
         basis='X_pca',
         ncols=1,
+        dpi=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('dpi', 200),
+        max_label_length=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('max_label_length', 10),
+        add_outline=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('add_outline', False),
 
 
 use rule plots from preprocessing as preprocessing_plot_umap with:
@@ -40,5 +43,8 @@ use rule plots from preprocessing as preprocessing_plot_umap with:
         basis='X_umap',
         ncols=1,
         outlier_factor=100,
+        dpi=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('dpi', 200),
+        max_label_length=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('max_label_length', 10),
+        add_outline=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('add_outline', False),
     resources:
         mem_mb=lambda w, attempt: 32000 * attempt,

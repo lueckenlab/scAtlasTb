@@ -23,6 +23,9 @@ You can run the module on a small test dataset using:
 ```bash
 snakemake --configfile test/config_no_gpu.yaml --use-conda --cores 8
 
+# plots are not part of the default target
+snakemake plots_all --configfile test/config_no_gpu.yaml --use-conda --cores 8
+
 # or, for the GPU-enabled variant
 snakemake --configfile test/config.yaml --use-conda --cores 8
 ```
@@ -63,6 +66,9 @@ DATASETS:
       colors: [batch, cell_type, CCR7]
       plot_centroids: [cell_type]
       plot_gene_chunk_size: 12
+      plots:
+        dpi: 200               # resolution of the rasterised points in the SVG plots
+        max_label_length: 10   # longer centroid labels are replaced by numbers
       assemble:
         - normalize
         - highly_variable_genes

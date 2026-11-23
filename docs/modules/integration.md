@@ -133,7 +133,7 @@ sc.pp.neighbors(**args); uns['output_type'] ← output_type
 
 #### 4. `integration_compute_umap`, `integration_plot_umap`
 
-`integration_compute_umap` re-uses the preprocessing `umap` rule (`scripts/umap.py`, `scanpy` / `rapids_singlecell`) on the postprocessed file (see the preprocessing module for details). `integration_plot_umap` re-uses the preprocessing `plots` rule (`scripts/plot.py`, `scanpy`) with basis `X_umap`, colours = label(s) + batch(es) + `umap_colors` + `plots.colors`, centroids from `plots.plot_centroids`, gene chunk size `plots.plot_gene_chunk_size` (default 12), and minimum category size 0.01 % of cells.
+`integration_compute_umap` re-uses the preprocessing `umap` rule (`scripts/umap.py`, `scanpy` / `rapids_singlecell`) on the postprocessed file (see the preprocessing module for details). `integration_plot_umap` re-uses the preprocessing `plots` rule (`scripts/plot.py`, `scanpy`) with basis `X_umap`, colours = label(s) + batch(es) + `umap_colors` + `plots.colors`, centroids from `plots.plot_centroids`, gene chunk size `plots.plot_gene_chunk_size` (default 12), `plots.dpi`, `plots.max_label_length` and `plots.add_outline` (see the preprocessing module), and minimum category size 0.01 % of cells.
 
 #### 5. `integration_benchmark`, `integration_benchmark_per_dataset`, `integration_barplot`, `integration_barplot_per_dataset`
 
@@ -151,7 +151,7 @@ Under `<output_dir>/integration/` (`<pattern>` = `dataset~<dataset>/file_id~<fil
 
 Under `<images>/integration/`:
 
-* `umap/<pattern with /output_type~...>/<color>.png` and `genes_group=<i>.png`.
+* `umap/<pattern with /output_type~...>/<color>.svg` and `genes_group=<i>.svg`.
 * `benchmark/<metric>.png` and `benchmark/dataset~<dataset>/metric~<metric>.png` for `s`, `max_uss`, `mean_load`.
 
 ### Environments

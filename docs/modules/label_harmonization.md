@@ -86,7 +86,7 @@ Relative to `<images>/label_harmonization/dataset~<dataset>/file_id~<file_id>/`:
 
 * `cellhint/relation.tsv` — harmonisation relation table with `group` column.
 * `cellhint/group~<group>/treeplot.png`, `treeplot_ordered.png`, `heatmap.png`, `dotplot.png`, `umaps/*.png` (`group` is a CellHint group or `all`).
-* `umaps/<color>.png` — UMAPs coloured by `plot_colors`.
+* `umaps/<color>.svg` — UMAPs coloured by `plot_colors`.
 
 ### Environments
 

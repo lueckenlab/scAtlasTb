@@ -17,6 +17,9 @@ use rule plots from preprocessing as clustering_plot_umap with:
             mcfg.get_from_parameters(wildcards, 'plots', default={}).get('colors', []),
         plot_centroids=lambda wildcards: get_cluster_keys(wildcards) +
             mcfg.get_from_parameters(wildcards, 'plots', default={}).get('plot_centroids', []),
+        dpi=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('dpi', 200),
+        max_label_length=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('max_label_length', 10),
+        add_outline=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('add_outline', False),
     resources:
         mem_mb=lambda w, attempt: mcfg.get_resource(profile='cpu',resource_key='mem_mb',attempt=attempt, factor=1),
         partition=mcfg.get_resource(profile='cpu',resource_key='partition'),
