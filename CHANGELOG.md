@@ -13,7 +13,7 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 
 ## 2026
 
-- **13.11.2026** Preprocessing: adaptive gene filtering, SVG plots and automatic dask strategy for HVG selection, see [details](#13112026-preprocessing-adaptive-gene-filtering-and-svg-plots) ([#396](https://github.com/lueckenlab/scAtlasTb/pull/396))
+- **13.11.2026** Preprocessing: adaptive gene filtering and automatic dask strategy for HVG selection, see [details](#13112026-preprocessing-adaptive-gene-filtering-and-hvg-selection) ([#396](https://github.com/lueckenlab/scAtlasTb/pull/396))
 - **13.11.2026** Utils: operator queries in `WildcardParameters`, NaN-safe batch filter, simpler sparse dask reads ([#394](https://github.com/lueckenlab/scAtlasTb/pull/394))
   - Wildcard filtering (`subset_by_query`) accepts operator dicts: `eq`, `ne`, `in`, `notin`.
   - `_filter_batch` ignores NaN batches and returns an all-`False` mask when no batch is left.
@@ -35,11 +35,10 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
   - **Breaking:** File names longer than 150 characters are shortened by hashing the wildcards of each module, so output paths of long names change.
 - **11.01.2026** Cell type prediction: predict donor sex from XIST and chrY gene expression, and from the ratio of non-pseudoautosomal to pseudoautosomal chrY genes ([#323](https://github.com/lueckenlab/scAtlasTb/pull/323), [#326](https://github.com/lueckenlab/scAtlasTb/pull/326))
 
-### 13.11.2026 Preprocessing: adaptive gene filtering and SVG plots
+### 13.11.2026 Preprocessing: adaptive gene filtering and HVG selection
 
 **Changes**
 
-- Plots are written as SVG and label the PCA axes with explained variance.
 - Default threads lowered from 10 to 4.
 - With `dask: true`, HVG selection (`highly_variable_genes`, `extra_hvgs`) chooses how to hold the matrix: lazy without `batch_key`; with `batch_key`, persisted on Scanpy ≥ 1.12 and loaded into memory on older Scanpy. With `extra_hvgs.union_over`, this happens per group.
 - New `extra_hvgs.union_min_cells` sets the minimum cells per `union_over` group (default: the `min_cells` used by `extra_hvgs`).
@@ -52,7 +51,6 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 - The default minimum batch size for HVG selection (`highly_variable_genes.min_cells`, `extra_hvgs.overwrite_args.min_cells`) is `50` instead of `max(n_bins, 200)`, so fewer small batches are excluded. Through its default, `extra_hvgs.union_min_cells` also drops to `50`.
 - With `extra_hvgs.union_over`, batches are filtered by `min_cells` within each group instead of across all cells, so cells of a batch that is small within a group are excluded from that group's HVG selection.
 - Without `min_cells` or `min_counts`, genes are filtered with `min_cells = max(10, min(200, ceil(0.001 * n_obs)))` instead of `1`.
-- `rule all` no longer builds plots; run `plots_all` for them.
 - `highly_variable_genes.large_batch_threshold` is removed; Scanpy rejects it as an unknown argument.
 - `extra_hvgs.min_cells` is replaced by `extra_hvgs.overwrite_args.min_cells`; the old key is ignored:
 
