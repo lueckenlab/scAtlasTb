@@ -79,7 +79,7 @@ flowchart TD
 
 4. **`clustering_merge`** (script `scripts/merge.py`, environment `scanpy`). Reads `.obs` of all level/algorithm/resolution outputs for one file, joins them on cell index and adds them to the `.obs` of the base file (the UMAP file from step 3 if `recompute_umap`, otherwise the input file). Sets `.uns['clustering'] = {'neighbors_key': ...}` and writes `obs` and `uns`, linking all other slots.
 
-5. **`clustering_plot_umap`** (preprocessing script `plot.py`, environment `scanpy`). Plots `X_umap` coloured by `umap_colors` + `plots.colors` + all cluster keys; cluster keys (and `plots.plot_centroids`) are drawn with numbered centroid labels. Columns with ≤1 unique value are skipped; categories with ≤ 0.01% of cells are removed; colours not in `.obs` are interpreted as gene names.
+5. **`clustering_plot_umap`** (preprocessing script `plot.py`, environment `scanpy`). Plots `X_umap` coloured by `umap_colors` + `plots.colors` + all cluster keys; cluster keys (and `plots.plot_centroids`) are labelled at their centroids. Plot settings `plots.dpi`, `plots.max_label_length` and `plots.add_outline` are passed on (see the preprocessing module). Columns with ≤1 unique value are skipped; categories with ≤ 0.01% of cells are removed; colours not in `.obs` are interpreted as gene names.
 
 6. **`clustering_plot_evaluation`** (script `scripts/plot_enrichment.py`, environment `scanpy`; not part of the default `all` target, run via `plot_evaluation_all`). For every cluster key × covariate in `umap_colors`: categorical covariates (≤100 categories) → stacked proportion bar plot per cluster titled with the normalised mutual information (`sklearn.metrics.normalized_mutual_info_score`, NaN rows dropped); numeric covariates → violin plot per cluster. Runs in a thread pool (1–10 threads).
 
@@ -93,7 +93,7 @@ Relative to `<output_dir>/clustering/`:
 
 Relative to `<images>/clustering/dataset~<dataset>/file_id~<file_id>/`:
 
-* `umap/<color>.png` — UMAPs per colour/cluster key.
+* `umap/<color>.svg` — UMAPs per colour/cluster key.
 * `evaluation/<cluster_key>--<covariate>.png` — stacked bar (with NMI) or violin plots.
 
 ### Environments

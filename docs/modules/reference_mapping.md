@@ -91,7 +91,7 @@ Paths follow the wildcard pattern `dataset~<dataset>/file_id~<file_id>` (see {re
 | `<output_dir>/reference_mapping/postprocess/<pattern>.zarr` | + `obsp['connectivities']`, `obsp['distances']`, `uns['neighbors']`, `uns['output_type']` |
 | `<output_dir>/reference_mapping/<pattern>.zarr` | final object, + `obsm['X_umap']` |
 | `<images>/reference_mapping/model/<pattern>/` | training history plots (empty for inference only) |
-| `<images>/reference_mapping/umap/<pattern>/` | one `.png` per color |
+| `<images>/reference_mapping/umap/<pattern>/` | one `.svg` per color |
 
 ### Environments
 

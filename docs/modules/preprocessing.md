@@ -242,12 +242,22 @@ obs colors: keep columns with > 1 unique value; categorical/string columns: 'NaN
 gene colors: remaining entries matched to var_names (exact, else substring/regex), sorted, chunked by plot_gene_chunk_size (default 12)
 remove embedding outliers (UMAP only, outlier_factor=100: cells with |max| or |min| ≥ 100 × mean)
 if n_cells > 1e6: plot a random 70 % of cells
-point size ← clip(200 000 / n_obs, min 0.5 or 1, max 200)
-for each color (parallel threads): scanpy.pl.embedding(basis, color, palette) → <color>.png
-for each gene chunk: scanpy.pl.embedding(color=genes, ncols=4) → genes_group=<i>.png
+point size ← size if configured, else max(200 000 / n_obs, 0.5 if n_obs > 500 000 else 1); at most 200
+for each color (parallel threads): scanpy.pl.embedding(basis, color, palette, add_outline) → <color>.svg
+for each gene chunk: scanpy.pl.embedding(color=genes, ncols=4) → genes_group=<i>.svg
 ```
 
-Palettes: > 102 categories `turbo` (legend removed), > 20 categories `godsnot_102`, numeric `coolwarm` if negative values else `plasma`. Categorical legends show group sizes; for columns in `plot_centroids` (≤ 102 categories, UMAP only) category numbers are drawn at the per-category median coordinates and prefixed in the legend. Figure titles list the wildcards and the number of cells.
+Palettes: > 102 categories `turbo` (legend removed), > 20 categories `godsnot_102`, numeric `coolwarm` if negative values else `plasma`. Categorical legends show group sizes; for columns in `plot_centroids` (≤ 102 categories, UMAP only) category labels are drawn at the per-category median coordinates; labels longer than `plots.max_label_length` characters (default 10) are replaced by numbers, which are prefixed in the legend. PCA plots show the explained variance of PC1 and PC2 on the axes. Figure titles list the wildcards and the number of cells.
+
+Plots are SVG files with text kept as text (`svg.fonttype: none`); the points are rasterised at `plots.dpi` (default 200). Settings under `plots`:
+
+| Key | Default | Description |
+|---|---|---|
+| `dpi` | `200` | resolution of the rasterised points |
+| `max_label_length` | `10` | centroid labels longer than this are replaced by numbers |
+| `add_outline` | `false` | draw an outline around groups of points (`scanpy.pl.embedding(add_outline=...)`) |
+
+The same `plots` keys apply to the UMAP plots of the integration and clustering modules.
 
 ```yaml
 DATASETS:
@@ -256,6 +266,10 @@ DATASETS:
       colors: [batch, cell_type, CCR7, PTPRC]
       plot_centroids: [cell_type]
       plot_gene_chunk_size: 12
+      plots:
+        dpi: 200
+        max_label_length: 10
+        add_outline: false
 ```
 
 #### Assemble
@@ -296,7 +310,7 @@ Under `<output_dir>/preprocessing/` (`<pattern>` = `dataset~<dataset>/file_id~<f
 
 Under `<images>/preprocessing/<pattern>/`:
 
-* `pca/<color>.png`, `umap/<color>.png` for every valid `.obs` color, and `genes_group=<i>.png` for gene panels.
+* `pca/<color>.svg`, `umap/<color>.svg` for every valid `.obs` color, and `genes_group=<i>.svg` for gene panels. Built by the `plots_all` target; the default target (`all`) builds only the assembled result.
 
 ### Environments
 

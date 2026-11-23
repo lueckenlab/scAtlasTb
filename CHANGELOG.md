@@ -13,6 +13,13 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 
 ## 2026
 
+- **23.11.2026** Plots: SVG embedding plots and shared `plots` settings in preprocessing, integration and clustering ([#426](https://github.com/lueckenlab/scAtlasTb/pull/426))
+  - `plots.dpi` (default 200), `plots.max_label_length` (default 10) and `plots.add_outline` are configurable in all three modules; preprocessing gains a `plots` block.
+  - Centroid labels are replaced by numbers only when longer than `max_label_length` (was: longer than 3 characters).
+  - PCA plots show the explained variance of PC1 and PC2 on the axes.
+  - A configured point `size` is used as given (was: never smaller than the cell-count default).
+  - **Breaking:** embedding plots from the shared plot script (preprocessing, integration, clustering, label harmonization, reference mapping, sample representation, pseudobulk PCA) are written as `.svg` instead of `.png`.
+  - **Breaking:** the preprocessing default target (`all`) no longer builds plots; run `plots_all`.
 - **13.11.2026** Utils: operator queries in `WildcardParameters`, NaN-safe batch filter, simpler sparse dask reads ([#394](https://github.com/lueckenlab/scAtlasTb/pull/394))
   - Wildcard filtering (`subset_by_query`) accepts operator dicts: `eq`, `ne`, `in`, `notin`.
   - `_filter_batch` ignores NaN batches and returns an all-`False` mask when no batch is left.
