@@ -98,6 +98,7 @@ HVG selection (`highly_variable_genes`, `extra_hvgs`) loads the matrix into memo
 
 | `batch_key` | Scanpy | Matrix | Why |
 |---|---|---|---|
+| any | < 1.12, flavor `seurat_v3` or `seurat_v3_paper` | loaded into memory | these flavors fail on sparse dask arrays before Scanpy 1.12 |
 | not set | any | lazy dask array | one pass over the data: fastest, least memory |
 | set | ≥ 1.12 | persisted dask array | as fast as in memory, lower peak memory with many batches |
 | set | < 1.12 | loaded into memory | Scanpy reads the matrix once per batch and is many times slower on dask arrays before 1.12 |

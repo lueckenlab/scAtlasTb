@@ -244,13 +244,15 @@ def dask_compute(adata, layers: [str, list] = None, verbose: bool = True, **kwar
     )
 
 
-def hvg_dask_strategy(dask: bool, batch_key: str = None) -> str:
+def hvg_dask_strategy(dask: bool, batch_key: str = None, flavor: str = None) -> str:
     """Choose how to hold X for scanpy.pp.highly_variable_genes.
 
     Returns 'compute' (load into memory), 'persist' (dask array held in memory)
     or 'lazy' (dask array read from disk on each pass):
 
     * without dask: 'compute'
+    * Scanpy<1.12 with flavor seurat_v3/seurat_v3_paper: 'compute', since
+      these flavors fail on sparse dask arrays before 1.12
     * without batch_key: 'lazy', since a single pass over the data is fastest
       and uses the least memory
     * with batch_key: Scanpy loops over batches and reads X once per batch.
@@ -260,13 +262,14 @@ def hvg_dask_strategy(dask: bool, batch_key: str = None) -> str:
     """
     if not dask:
         return 'compute'
-    if not batch_key:
-        return 'lazy'
     import scanpy
     from packaging.version import Version
-    if Version(scanpy.__version__) < Version('1.12'):
+    old_scanpy = Version(scanpy.__version__) < Version('1.12')
+    if old_scanpy and flavor in ('seurat_v3', 'seurat_v3_paper'):
         return 'compute'
-    return 'persist'
+    if not batch_key:
+        return 'lazy'
+    return 'compute' if old_scanpy else 'persist'
 
 
 def prepare_hvg_matrix(adata, strategy: str):

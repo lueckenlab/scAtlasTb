@@ -40,7 +40,7 @@ Bug fixes and minor changes are listed in the [merged pull requests](https://git
 **Changes**
 
 - Default threads lowered from 10 to 4.
-- With `dask: true`, HVG selection (`highly_variable_genes`, `extra_hvgs`) chooses how to hold the matrix: lazy without `batch_key`; with `batch_key`, persisted on Scanpy ≥ 1.12 and loaded into memory on older Scanpy. With `extra_hvgs.union_over`, this happens per group.
+- With `dask: true`, HVG selection (`highly_variable_genes`, `extra_hvgs`) chooses how to hold the matrix: lazy without `batch_key`; with `batch_key`, persisted on Scanpy ≥ 1.12 and loaded into memory on older Scanpy. `seurat_v3` and `seurat_v3_paper` are always loaded into memory on Scanpy < 1.12, which fails on sparse dask arrays. With `extra_hvgs.union_over`, this happens per group.
 - New `extra_hvgs.union_min_cells` sets the minimum cells per `union_over` group (default: the `min_cells` used by `extra_hvgs`).
 - `extra_hvgs` no longer passes `highly_variable_genes.min_cells` on to Scanpy, where it failed.
 - HVG scripts share common helpers.

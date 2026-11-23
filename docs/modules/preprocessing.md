@@ -116,8 +116,8 @@ else:
     min_cells ← args.pop('min_cells', 50)
     drop batches of batch_key with < min_cells cells (utils.accessors._filter_batch)
     subset genes to var['nonzero_genes']
-    strategy ← utils.misc.hvg_dask_strategy(dask, batch_key):
-        no dask → compute; no batch_key → lazy;
+    strategy ← utils.misc.hvg_dask_strategy(dask, batch_key, flavor):
+        no dask → compute; seurat_v3(_paper) on Scanpy < 1.12 → compute; no batch_key → lazy;
         batch_key → persist (Scanpy ≥ 1.12) or compute (older Scanpy)
     X ← compute() / persist() / keep lazy (unchunked along genes)
     scanpy.pp.highly_variable_genes(adata, **args)
@@ -145,7 +145,7 @@ Additional gene mask, independent of the PCA input.
 
 ```text
 args ← highly_variable_genes config (drop subset, min_cells) | overwrite_args
-strategy ← utils.misc.hvg_dask_strategy(dask, batch_key)   # as for highly_variable_genes
+strategy ← utils.misc.hvg_dask_strategy(dask, batch_key, flavor)   # as for highly_variable_genes
 column ← 'extra_hvgs' + ''.join(f'-{k}={v}' for k in sorted(overwrite_args))
 min_cells ← args.pop('min_cells', 50)                              # per batch
 union_min_cells ← extra_hvgs.union_min_cells or min_cells            # per union_over group

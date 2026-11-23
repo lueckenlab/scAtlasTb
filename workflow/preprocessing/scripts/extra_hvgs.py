@@ -129,7 +129,7 @@ logging.info(f'min_cells={min_cells}, union_min_cells={union_min_cells}')
 
 # resolve after overrides so filtering uses the same batch key as Scanpy
 batch_key = args.get('batch_key')
-strategy = hvg_dask_strategy(dask, batch_key)
+strategy = hvg_dask_strategy(dask, batch_key, flavor=args.get('flavor'))
 
 logging.info(f'args: {args}')
 logging.info(f'dask: {dask}')

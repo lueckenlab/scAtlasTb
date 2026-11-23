@@ -122,7 +122,7 @@ else:
     n_batches = adata.obs[batch_key].nunique() if batch_key in adata.obs.columns else 0
     logging.info(f'Filtered data shape: n_obs={adata.n_obs}, n_vars={adata.n_vars}, n_batches={n_batches}')
 
-    strategy = hvg_dask_strategy(dask, batch_key)
+    strategy = hvg_dask_strategy(dask, batch_key, flavor=hvg_args.get('flavor'))
     logging.info('X for HVG computation: %s', strategy)
     t0 = time.perf_counter()
     adata = prepare_hvg_matrix(adata, strategy)
