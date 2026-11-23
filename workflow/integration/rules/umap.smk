@@ -41,8 +41,6 @@ use rule plots from preprocessing as integration_plot_umap with:
         min_cells_per_category=0.0001,
         plot_centroids=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('plot_centroids', []),
         gene_chunk_size=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('plot_gene_chunk_size', 12),
-        add_outline=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('add_outline', False),
-        max_label_length=lambda w: mcfg.get_from_parameters(w, 'plots', default={}).get('max_label_length', 10),
     threads:
         lambda wildcards: max(
             1,
