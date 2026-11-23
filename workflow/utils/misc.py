@@ -244,6 +244,50 @@ def dask_compute(adata, layers: [str, list] = None, verbose: bool = True, **kwar
     )
 
 
+def hvg_dask_strategy(dask: bool, batch_key: str = None, flavor: str = None) -> str:
+    """Choose how to hold X for scanpy.pp.highly_variable_genes.
+
+    Returns 'compute' (load into memory), 'persist' (dask array held in memory)
+    or 'lazy' (dask array read from disk on each pass):
+
+    * without dask: 'compute'
+    * Scanpy<1.12 with flavor seurat_v3/seurat_v3_paper: 'compute', since
+      these flavors fail on sparse dask arrays before 1.12
+    * without batch_key: 'lazy', since a single pass over the data is fastest
+      and uses the least memory
+    * with batch_key: Scanpy loops over batches and reads X once per batch.
+      Scanpy>=1.12 handles that well on a persisted dask array (as fast as in
+      memory, with lower peak memory for many batches), so 'persist'; older
+      versions are many times slower on dask arrays, so 'compute'.
+    """
+    if not dask:
+        return 'compute'
+    import scanpy
+    from packaging.version import Version
+    old_scanpy = Version(scanpy.__version__) < Version('1.12')
+    if old_scanpy and flavor in ('seurat_v3', 'seurat_v3_paper'):
+        return 'compute'
+    if not batch_key:
+        return 'lazy'
+    return 'compute' if old_scanpy else 'persist'
+
+
+def prepare_hvg_matrix(adata, strategy: str):
+    """Apply a `hvg_dask_strategy` result to adata.X in place."""
+    from dask import array as da
+
+    if not isinstance(adata.X, da.Array):
+        return adata
+    if len(adata.X.chunks[1]) > 1:
+        # Scanpy expects dask arrays that are not chunked along genes
+        adata.X = adata.X.rechunk({1: -1})
+    if strategy == 'compute':
+        adata = dask_compute(adata, layers='X')
+    elif strategy == 'persist':
+        adata.X = adata.X.persist()
+    return adata
+
+
 def apply_layers(adata, func, layers:[str, list, bool] = None, verbose: bool = False, **kwargs):
     if layers is None or layers is True:
         layers = ['X', 'raw'] + list(adata.layers.keys())

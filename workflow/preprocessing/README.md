@@ -51,9 +51,14 @@ DATASETS:
       highly_variable_genes:
         n_top_genes: 2000
         batch_key: batch
+        min_cells: 50          # minimum cells per batch (highly_variable_genes only)
       extra_hvgs:
         union_over: [lineage]
         extra_genes: [CCR7, PTPRC]
+        union_min_cells: 500   # minimum cells per lineage (default: min_cells)
+        overwrite_args:        # highly_variable_genes settings that differ for extra_hvgs
+          batch_key: donor
+          min_cells: 20        # minimum cells per donor, counted within each lineage
       pca:
         n_comps: 50
       neighbors:
@@ -71,6 +76,34 @@ DATASETS:
         - neighbors
         - umap
 ```
+
+## Cell and gene thresholds
+
+`min_cells` means different things depending on the step:
+
+| Key | Applies to | Default |
+|---|---|---|
+| `filter.min_cells` | Genes: minimum number of cells a gene must be expressed in to be considered for HVG selection (the feature space is not reduced) | `max(10, min(200, ceil(0.001 * n_obs)))`, unless `filter` sets `min_cells` or `min_counts` |
+| `highly_variable_genes.min_cells` | Batches of `batch_key`: cells in smaller batches, or with a missing batch, are excluded from HVG selection. Not used by `extra_hvgs` | `50` |
+| `extra_hvgs.overwrite_args.min_cells` | Batches of the effective `batch_key` in `extra_hvgs`. With `union_over`, batches are counted within each group, so a batch that is small in one group is excluded only from that group | `50` |
+| `extra_hvgs.union_min_cells` | `union_over` groups: groups with fewer cells (after batch filtering) are skipped; if none remain, HVGs are computed on all cells | the `min_cells` used by `extra_hvgs` |
+
+Unlike `batch_key`, `min_cells` is not inherited from `highly_variable_genes`: `extra_hvgs` only uses `extra_hvgs.overwrite_args.min_cells`. `min_cells` can't be swept as a list, since it isn't part of the output file name.
+
+Batch filtering exists because batch-aware HVG selection fails on very small batches: `cell_ranger` and `seurat_v3` raise errors (or, for `seurat_v3` with a single cell, crash the process) when a batch has only a handful of cells.
+
+## Dask and HVG selection
+
+HVG selection (`highly_variable_genes`, `extra_hvgs`) loads the matrix into memory by default (`dask: false` for these steps). With `dask: true`, the way the matrix is held is chosen automatically (`utils.misc.hvg_dask_strategy`):
+
+| `batch_key` | Scanpy | Matrix | Why |
+|---|---|---|---|
+| any | < 1.12, flavor `seurat_v3` or `seurat_v3_paper` | loaded into memory | these flavors fail on sparse dask arrays before Scanpy 1.12 |
+| not set | any | lazy dask array | one pass over the data: fastest, least memory |
+| set | ≥ 1.12 | persisted dask array | as fast as in memory, lower peak memory with many batches |
+| set | < 1.12 | loaded into memory | Scanpy reads the matrix once per batch and is many times slower on dask arrays before 1.12 |
+
+With `extra_hvgs.union_over`, this is applied to each group separately, so only one group is held in memory at a time. Peak memory depends on the size of the largest batch, since Scanpy copies each batch's cells.
 
 All step-specific keys (`normalize`, `filter`, `highly_variable_genes`, `extra_hvgs`, `pca`, `neighbors`, `umap`) as well as the global knobs `dask`, `n_threads` and `resources` can be set under `defaults: preprocessing:` and overridden per dataset.
 The per-step behaviour and all parameters are described in the *Functional description* section of the module documentation page.

@@ -95,7 +95,7 @@ DATASETS:
 
 #### Filter genes
 
-Reads `X` (normalised counts) and computes `var['nonzero_genes'] = scanpy.pp.filter_genes(X, **filter)[0]` (default `filter: {min_cells: 1}`). This is only a mask used by the HVG steps to avoid genes that break HVG selection; the feature space is not reduced.
+Reads `X` (normalised counts) and computes `var['nonzero_genes'] = scanpy.pp.filter_genes(X, **filter)[0]` (if `filter` sets neither `min_cells` nor `min_counts`, `min_cells = max(10, min(200, ceil(0.001 * n_obs)))`). This is only a mask used by the HVG steps to avoid genes that break HVG selection; the feature space is not reduced.
 
 ```yaml
 DATASETS:
@@ -113,10 +113,13 @@ column ← 'highly_variable' + ''.join(f'-{k}={v}' for k in sorted(args))
 X ← layers/counts if flavor == 'seurat_v3' else layers/normcounts
 if args is False:  var['highly_variable'] ← True        # no HVG selection
 else:
-    min_cells ← args.pop('min_cells', max(args.n_bins or 20, 200))
+    min_cells ← args.pop('min_cells', 50)
     drop batches of batch_key with < min_cells cells (utils.accessors._filter_batch)
     subset genes to var['nonzero_genes']
-    sort cells by batch_key (contiguous batches); persist dask array (chunks 200 000 × all genes)
+    strategy ← utils.misc.hvg_dask_strategy(dask, batch_key, flavor):
+        no dask → compute; seurat_v3(_paper) on Scanpy < 1.12 → compute; no batch_key → lazy;
+        batch_key → persist (Scanpy ≥ 1.12) or compute (older Scanpy)
+    X ← compute() / persist() / keep lazy (unchunked along genes)
     scanpy.pp.highly_variable_genes(adata, **args)
     map highly_variable, means, dispersions, dispersions_norm,
         highly_variable_nbatches, highly_variable_intersection back to full var
@@ -141,17 +144,24 @@ DATASETS:
 Additional gene mask, independent of the PCA input.
 
 ```text
-args ← highly_variable_genes config (drop subset) | overwrite_args
+args ← highly_variable_genes config (drop subset, min_cells) | overwrite_args
+strategy ← utils.misc.hvg_dask_strategy(dask, batch_key, flavor)   # as for highly_variable_genes
 column ← 'extra_hvgs' + ''.join(f'-{k}={v}' for k in sorted(overwrite_args))
-min_cells ← extra_hvgs.min_cells or max(args.n_bins or 20, 200)
-read layers/counts (seurat_v3) or layers/normcounts; filter batches (< min_cells) and nonzero_genes
-sort cells by batch_key
+min_cells ← args.pop('min_cells', 50)                              # per batch
+union_min_cells ← extra_hvgs.union_min_cells or min_cells            # per union_over group
+read layers/counts (seurat_v3, seurat_v3_paper) or layers/normcounts
 remove genes matching remove_genes (subset before HVG selection)
 if union_over:
-    group ← '--'.join(obs[union_over]) with 'nan'/'unknown' as missing; drop groups < min_cells
-    for each group: scanpy.pp.highly_variable_genes(group, **args); column |= group HVGs
+    group ← '--'.join(obs[union_over]) with 'nan'/'unknown' as missing
+    within each group, drop cells with missing batch_key or in batches < min_cells
+    drop groups < union_min_cells (counted after batch filtering)
+    subset to retained cells and nonzero_genes, sorted by group, then batch_key
+    for each group: prepare group X by strategy; scanpy.pp.highly_variable_genes(group, **args); column |= group HVGs
     (falls back to all cells if no valid group remains)
-else: scanpy.pp.highly_variable_genes(adata, **args)
+if no union_over (or fallback):
+    drop cells with missing batch_key or in batches < min_cells (across all cells)
+    subset to retained cells and nonzero_genes, sorted by batch_key
+    prepare X by strategy; scanpy.pp.highly_variable_genes(adata, **args)
 map back to full var (False for filtered genes); set column True for matched extra_genes
 ```
 
@@ -165,10 +175,11 @@ DATASETS:
         union_over: [lineage]
         extra_genes: [CCR7, PTPRC]
         remove_genes: [MALAT1]
-        min_cells: 200
+        union_min_cells: 500   # minimum cells per union_over group (default: min_cells)
         overwrite_args:
           n_top_genes: 3000
           flavor: seurat_v3
+          min_cells: 50        # minimum cells per batch (within each group with union_over)
 ```
 
 #### PCA

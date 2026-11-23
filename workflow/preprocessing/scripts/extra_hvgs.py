@@ -13,13 +13,79 @@ from tqdm.dask import TqdmCallback
 from dask import config as da_config
 da_config.set(num_workers=snakemake.threads)
 import numpy as np
+import pandas as pd
 import anndata as ad
 
 from utils.io import read_anndata, write_zarr_linked
 from utils.accessors import _filter_batch, match_genes
-from utils.misc import dask_compute
+from utils.misc import hvg_dask_strategy, prepare_hvg_matrix
 from utils.processing import sc, USE_GPU
 rsc = sc
+
+def _write_empty_result(adata, output_file, hvg_column_name):
+    logging.info('No data after filtering, write empty file...')
+    var[hvg_column_name] = True
+    adata = ad.AnnData(var=var, uns=adata.uns)
+    write_zarr_linked(
+        adata,
+        in_dir=input_file,
+        out_dir=output_file,
+        files_to_keep=['uns', 'var']
+    )
+    exit(0)
+
+def _compute_group_mapping(obs, union_keys):
+    keys = [union_keys] if isinstance(union_keys, str) else union_keys
+    return (
+        obs[keys]
+        .astype(str)
+        .replace(['nan', 'unknown'], np.nan)
+        .dropna()
+        .agg('--'.join, axis=1)
+    )
+
+def _filter_batch_per_group(obs, group_mapping, batch_key, min_cells):
+    """Keep cells whose batch has at least `min_cells` cells within their group.
+
+    Per-group counterpart of `_filter_batch`: a batch can pass globally but
+    have only a few cells in one group (e.g. when batch and group are
+    confounded), which breaks batch-aware HVG selection for that group.
+    Cells with a missing batch are dropped. Returns the subset of
+    `group_mapping` that is retained.
+    """
+    if not batch_key:
+        return group_mapping
+    batches = obs.loc[group_mapping.index, batch_key]
+    pairs = (
+        pd.DataFrame({'group': group_mapping, 'batch': batches})
+        .dropna(subset=['batch'])
+    )
+    pair_sizes = pairs.groupby(['group', 'batch'], observed=True)['group'].transform('size')
+    keep = pair_sizes.index[pair_sizes >= min_cells]
+    n_removed = group_mapping.size - keep.size
+    if n_removed > 0:
+        logging.info(
+            f"Removed {n_removed} cells with missing '{batch_key}' or whose "
+            f"'{batch_key}' value has < {min_cells} cells within their group"
+        )
+    return group_mapping.loc[keep]
+
+
+def _build_ordered_index(obs, valid_mapping, batch_key):
+    """Sort retained cells for HVG selection.
+
+    If `valid_mapping` is given, only its cells are kept (it must already be
+    batch-filtered); otherwise `obs` must already be batch-filtered. Orders by
+    group label and/or `batch_key`.
+    """
+    sort_cols = [batch_key] if batch_key else []
+    if valid_mapping is not None:
+        obs = obs.loc[valid_mapping.index].assign(_group_label=valid_mapping)
+        sort_cols = ['_group_label'] + sort_cols
+
+    if not sort_cols:
+        return obs.index.tolist()
+    return obs.sort_values(sort_cols, kind='stable').index.tolist()
 
 
 input_file = snakemake.input[0]
@@ -30,7 +96,6 @@ overwrite_args = snakemake.params.get('overwrite_args', {})
 union_over = extra_hvg_args.get('union_over')
 extra_genes = extra_hvg_args.get('extra_genes', [])
 remove_genes = extra_hvg_args.get('remove_genes', [])
-min_cells = extra_hvg_args.pop('min_cells', max(args.get('n_bins', 20), 200))
 
 logging.info(f'Extra HVG args:\n{pformat(extra_hvg_args)}')
 logging.info(f'Overwrite args:\n{pformat(overwrite_args)}')
@@ -47,16 +112,32 @@ if not args:
     args = {}
 elif isinstance(args, dict):
     args.pop('subset', None) # don't support subsetting
-if isinstance(overwrite_args, dict):
-    args |= overwrite_args
-    for key in sorted(overwrite_args.keys()):
-        hvg_column_name += f'-{key}={overwrite_args[key]}'
+    # highly_variable_genes.min_cells only applies to highly_variable_genes.py
+    args.pop('min_cells', None)
+if not isinstance(overwrite_args, dict):
+    overwrite_args = {}
+args |= overwrite_args
+for key in sorted(overwrite_args.keys()):
+    hvg_column_name += f'-{key}={overwrite_args[key]}'
+
+# min_cells comes only from overwrite_args (not a Scanpy argument, so pop it)
+# min_cells: minimum cells per batch (globally, or within each union_over group)
+# union_min_cells: minimum cells per union_over group
+min_cells = args.pop('min_cells', 50)  # batch-aware HVG fails for batches of ~10 cells or fewer
+union_min_cells = extra_hvg_args.pop('union_min_cells', min_cells)
+logging.info(f'min_cells={min_cells}, union_min_cells={union_min_cells}')
+
+# resolve after overrides so filtering uses the same batch key as Scanpy
+batch_key = args.get('batch_key')
+strategy = hvg_dask_strategy(dask, batch_key, flavor=args.get('flavor'))
 
 logging.info(f'args: {args}')
 logging.info(f'dask: {dask}')
+logging.info(f'X for HVG computation: {strategy}')
 
 logging.info(f'Read {input_file}...')
-layer = 'layers/counts' if args.get('flavor') == 'seurat_v3' else 'layers/normcounts'
+# both seurat_v3 flavors expect raw counts
+layer = 'layers/counts' if args.get('flavor') in ('seurat_v3', 'seurat_v3_paper') else 'layers/normcounts'
 adata = read_anndata(
     input_file,
     X=layer,
@@ -66,6 +147,7 @@ adata = read_anndata(
     backed=True,
     dask=True,
 )
+adata.obs_names_make_unique()
 logging.info(adata.__str__())
 for col in adata.var.columns:
     if col.startswith('extra_hvgs'):
@@ -89,35 +171,6 @@ if adata.n_obs == 0:
 # make a copy of var for later use since we'll be subsetting adata for HVG selection
 var = adata.var.copy()
 
-# filter genes and cells that would break HVG function
-batch_mask = _filter_batch(
-    adata,
-    batch_key=args.get('batch_key'),
-    min_cells=min_cells,
-)
-logging.info(f'Before filtering for HVG selection: {adata.shape}')
-adata = adata[batch_mask, adata.var['nonzero_genes']].copy()
-logging.info(f'After filtering for HVG selection: {adata.shape}')
-
-# Handle case where filtering resulted in empty data
-if adata.n_obs == 0:
-    logging.info('No data after filtering, write empty file...')
-    var[hvg_column_name] = True
-    adata = ad.AnnData(var=var, uns=adata.uns)
-    write_zarr_linked(
-        adata,
-        in_dir=input_file,
-        out_dir=output_file,
-        files_to_keep=['uns', 'var']
-    )
-    exit(0)
-
-# Keep batches contiguous for count-based operations.
-batch_key = args.get('batch_key') if isinstance(args, dict) else None
-if batch_key in adata.obs.columns:
-    adata.obs_names_make_unique()
-    adata = adata[adata.obs.sort_values(batch_key, kind='stable').index].copy()
-
 # workaround for CxG datasets
 feature_col = 'feature_name' if 'feature_name' in var.columns else None
 
@@ -134,64 +187,77 @@ if remove_genes:
 
 adata.var[hvg_column_name] = False
 
+if batch_key:
+    assert batch_key in adata.obs.columns, f"Column '{batch_key}' not found in adata.obs"
+
 if union_over is not None:
     logging.info(f'Compute highly variable genes per {union_over} with args={args}...')
-    if isinstance(union_over, str):
-        union_over = [union_over]
-    union_values = adata.obs[union_over].astype(str) \
-        .replace(['nan', 'unknown'], np.nan).dropna() \
-        .apply(lambda x: '--'.join(x), axis=1)
-    
-    # remove groups with fewer than min_cells
-    value_counts = union_values.value_counts()
-    remove_groups = value_counts[value_counts < min_cells]
-    union_values = union_values[~union_values.isin(remove_groups.index)]
-    
-    if union_values.empty:
+
+    # Normalize union_over to a list and map each cell to its group label
+    union_keys = [union_over] if isinstance(union_over, str) else union_over
+    group_mapping = _compute_group_mapping(adata.obs, union_keys)
+
+    # filter cells that would break HVG function: missing or too-small batches,
+    # counted within each group rather than globally
+    group_mapping = _filter_batch_per_group(adata.obs, group_mapping, batch_key, min_cells)
+
+    # Filter out groups below the minimum cell threshold (after batch filtering)
+    group_counts = group_mapping.value_counts()
+    valid_groups = group_counts[group_counts >= union_min_cells]
+    logging.info(f'Union over {union_keys}:\n{group_counts}')
+
+    n_removed = group_mapping.size - valid_groups.sum()
+    if n_removed > 0:
+        logging.info(f'Removed {n_removed} cells from groups with < {union_min_cells} cells')
+
+    if valid_groups.empty:
         logging.info('No valid union_over groups found; running HVG selection on all cells...')
         union_over = None
     else:
-        # set union_over values in adata.obs
-        adata.obs['union_over'] = union_values
-        adata.obs['union_over'] = adata.obs['union_over'].astype('category')
-        
-        logging.info(adata.obs['union_over'].value_counts(dropna=False))
-        if len(remove_groups) > 0:
-            logging.info(f'Removed groups with fewer than {min_cells} cells:\n{remove_groups}')
-        
-        for group in tqdm(
-            adata.obs['union_over'].dropna().unique(),
-            miniters=1,
-            desc='Computing HVGs per group',
-        ):
-            _ad = adata[adata.obs['union_over'] == group].copy()
-            
-            if not dask:
-                logging.info('Compute matrix...')
-                _ad = dask_compute(_ad)
-            
+        valid_mapping = group_mapping[group_mapping.isin(valid_groups.index)]
+
+        logging.info(f'Before filtering for HVG selection: {adata.shape}')
+        # build ordered index and single-subset adata (rows + nonzero genes)
+        new_index = _build_ordered_index(adata.obs, valid_mapping, batch_key)
+        adata = adata[new_index, adata.var['nonzero_genes']].copy()
+        logging.info(f'After filtering for HVG selection: {adata.shape}')
+
+        if adata.n_obs == 0:
+            _write_empty_result(adata, output_file, hvg_column_name)
+
+        # Compute HVGs per group and accumulate results via union.
+        # X is prepared per group, so at most one group is held in memory.
+        for group, cell_idx in tqdm(valid_mapping.groupby(valid_mapping), miniters=1, desc='Computing HVGs per group'):
+            _ad = adata[cell_idx.index].copy()
+            _ad = prepare_hvg_matrix(_ad, strategy)
             if use_gpu:
                 rsc.get.anndata_to_GPU(_ad)
 
             sc.pp.highly_variable_genes(_ad, **args)
-            
-            # get union of gene sets
-            adata.var[hvg_column_name] = adata.var[hvg_column_name] | _ad.var['highly_variable']
+            adata.var[hvg_column_name] |= _ad.var['highly_variable']
             del _ad
-        
-        logging.info(f'Computed {adata.var[hvg_column_name].sum()} highly variable genes.')
 
+        logging.info(f'Total highly variable genes across all groups: {adata.var[hvg_column_name].sum()}')
+
+# not an `else`: also runs as fallback when no union_over group qualified
 if union_over is None:
-    # default gene selection
     logging.info(f'Select features for all cells with arguments: {args}...')
+
+    # filter cells that would break HVG function (missing or too-small batches)
+    batch_mask = _filter_batch(adata, batch_key=batch_key, min_cells=min_cells)
+
+    logging.info(f'Before filtering for HVG selection: {adata.shape}')
+    # build ordered index and subset to retained cells + nonzero genes
+    new_index = _build_ordered_index(adata.obs[batch_mask], None, batch_key)
+    adata = adata[new_index, adata.var['nonzero_genes']].copy()
+    logging.info(f'After filtering for HVG selection: {adata.shape}')
+    
+    if adata.n_obs == 0:
+        _write_empty_result(adata, output_file, hvg_column_name)
+
+    adata = prepare_hvg_matrix(adata, strategy)
     if use_gpu:
         sc.get.anndata_to_GPU(adata)
-    
-    if not dask:
-        logging.info('Compute matrix...')
-        adata = dask_compute(adata)
-    else: # persist
-        adata.X = adata.X.rechunk((200_000, -1)).persist()
 
     with TqdmCallback(desc=f'Select features with arguments: {args}...', miniters=1):
         sc.pp.highly_variable_genes(adata, **args)
