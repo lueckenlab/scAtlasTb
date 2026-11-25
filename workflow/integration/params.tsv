@@ -7,6 +7,7 @@ harmonypy	embed	false	false	rapids_singlecell	gpu	scanpy
 scanorama	embed,full	false	false	scanorama	cpu		
 scanvi	embed	true	true	scvi-tools	gpu		
 scvi	embed	false	true	scvi-tools	gpu		
+scvix	embed	true	true	scvix	gpu		pseudoinputs_data_indices
 scvi_vitkl	embed	false	true	scvi-vitkl	gpu		
 drvi	embed	false	true	scvi-tools	gpu		
 scpoli	embed	true	false	scarches	gpu	scarches	conditions,unknown_ct_names,labeled_indices,hidden_layer_sizes
