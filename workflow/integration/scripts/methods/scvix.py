@@ -80,11 +80,14 @@ clean_categorical_column(adata, batch_key)
 clean_categorical_column(adata, assay_key)
 
 # Check if the cell type keys are in the config, overrides the default label_key if the parameter is present.
-label_key = model_params.pop('cell_type_keys', label_key)
+label_key = model_params.pop('labels_key', label_key)
 if (label_key == 'None') | (label_key == None):
     label_key = None
 else:
     clean_categorical_column(adata, label_key)
+
+# set unlabeled category
+unlabeled_category = model_params.pop('unlabeled_category', 'nan')
 
 # subset features
 adata, subsetted = subset_hvg(adata, var_column='integration_features')
@@ -101,6 +104,7 @@ SCVIX.setup_anndata(
     adversarial_group_key=adversarial_group_key,
     categorical_covariate_keys=categorical_covariate_keys,
     continuous_covariate_keys=continuous_covariate_keys,
+    unlabeled_category = unlabeled_category
 )
 
 logging.info(f'Set up SCVIX with parameters:\n{pformat(model_params)}')

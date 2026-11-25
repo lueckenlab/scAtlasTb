@@ -153,6 +153,7 @@ DATASETS:
             reduce_lr: true
             lr_patience: 13
             lr_factor: 0.1
+          unknown_ct_names: ['nan']
       umap_colors:
         - bulk_labels
         - phase
@@ -263,7 +264,7 @@ DATASETS:
       batch: batch
       methods:
         scvix:
-          cell_type_keys:
+          labels_key:
               - 
               - bulk_labels
           assay_key: batch
@@ -276,6 +277,7 @@ DATASETS:
           max_epochs: 20
           early_stopping: true
           batch_representation: embedding
+          unlabeled_category: nan
       umap_colors:
         - bulk_labels
         - phase

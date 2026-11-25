@@ -114,6 +114,42 @@ DATASETS:
           max_epochs: 100
 ```
 
+### Unsupervised options for scpoli and scvix
+Most integration methods are unsupervised: they only use the count matrix and the `batch` column.
+`scpoli` and `scvix` are semi-supervised, meaning they can additionally use cell type labels to guide the integration.
+By default, they train on the dataset `label`, but they also work without labels (unsupervised).
+
+A method-specific hyperparameter overrides the dataset `label` for that method only:
+
+| Method | Override parameter |
+|---|---|
+| `scpoli` | `cell_type_keys` |
+| `scvix` | `labels_key` |
+
+For example, to train each method once without and once with labels:
+
+```yaml
+methods:
+  scpoli:
+    cell_type_keys:
+      -            # no labels -> unsupervised run
+      - bulk_labels  # bulk_labels -> semi-supervised run
+  scvix:
+    assay_key: batch
+    labels_key:
+      -            # no labels -> unsupervised run
+      - bulk_labels  # bulk_labels -> semi-supervised run
+```
+
+This configuration produces 4 runs:
+
+| Method | Labels used | Mode |
+|---|---|---|
+| `scpoli` | none | unsupervised |
+| `scpoli` | `bulk_labels` | semi-supervised |
+| `scvix` | none | unsupervised |
+| `scvix` | `bulk_labels` | semi-supervised |
+
 ### Module specification
 Mandatory parameters that must be defined are the input file definition, `label`, `batch` and `methods`. All other paramters are optional. 
 The AnnData file in h5ad or zarr requires the following input:

@@ -70,12 +70,13 @@ SCVIX_MODEL_PARAMS = SCVI_MODEL_PARAMS + [
     # scvix assay
     'assay_key', # Mandatory 
     # scvix overriding cell type key
-    'cell_type_keys',
+    'labels_key',
     # VampPrior
     'prior',
     'pseudoinputs_data_indices',
     'n_prior_components',
     'adversarial_group_key',
+    'unlabeled_category'
 ]
 
 SYSVI_MODEL_PARAMS = SCVI_MODEL_PARAMS + [
