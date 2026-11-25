@@ -160,5 +160,5 @@ Under `<images>/integration/`:
 * `scanpy`: prepare, UMAP plots; CPU environment of `unintegrated`, `harmony_pytorch`, `harmonypy`; `combat`; postprocess and UMAP when `use_gpu: false`.
 * `rapids_singlecell` (only with `use_gpu: true`): `unintegrated`, `harmony_pytorch`, `harmonypy`, postprocess (neighbors) and UMAP computation.
 * `bbknn`, `scanorama`: the respective methods (CPU and GPU mode).
-`scvi-tools`: `scvi`, `scanvi`, `drvi`, `sysvi`; `scvi-vitkl`: `scvi_vitkl`; `scarches`: `scpoli`, `scgen`. These use a GPU when available (`resources: gpu`), but have no CPU-specific environment.
+* `scvi-tools`: `scvi`, `scanvi`, `drvi`, `sysvi`; `scvix`: `scvix`; `scvi-vitkl`: `scvi_vitkl`; `scarches`: `scpoli`, `scgen`. These use a GPU when available (`resources: gpu`), but have no CPU-specific environment.
 * `plots`: benchmark barplots.
